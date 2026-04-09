@@ -139,7 +139,6 @@ swift build
 ```
 
 ## 关键架构决策
-[ARCHITECTURE.md](www.baidu.com)
 
 详见 [ARCHITECTURE.md](ARCHITECTURE.md)。简短版：
 
