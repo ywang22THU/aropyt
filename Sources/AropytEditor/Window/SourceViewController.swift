@@ -93,9 +93,9 @@ final class SourceViewController: NSViewController, NSTextViewDelegate {
         applyHighlighting()
     }
 
-    /// NSTextView 在 isEditable=true 时，cmd+click 带 .link attribute 的文本会调到这里。
-    /// 显式用 NSWorkspace 打开，确保统一行为；返回 true 表示我们已处理。
+    /// 只有 Cmd+Click 才打开链接，普通点击仅移动光标。
     func textView(_ textView: NSTextView, clickedOnLink link: Any, at charIndex: Int) -> Bool {
+        guard NSEvent.modifierFlags.contains(.command) else { return true }
         if let url = link as? URL {
             NSWorkspace.shared.open(url)
             return true

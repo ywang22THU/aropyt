@@ -7,6 +7,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // 不要在这里手动调 newDocument —— NSDocumentController 会通过
         // applicationShouldOpenUntitledFile / applicationOpenUntitledFile 自动开一个，
         // 重复调用会出现两个空白窗口。
+
+        // 从终端启动时确保应用窗口获得焦点
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
