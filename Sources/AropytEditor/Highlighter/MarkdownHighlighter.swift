@@ -96,7 +96,16 @@ final class MarkdownHighlighter {
             guard let m = match, m.numberOfRanges >= 2 else { return }
             let urlRange = m.range(at: 1)
             guard urlRange.location != NSNotFound else { return }
-            let urlString = (text as NSString).substring(with: urlRange)
+            var urlString = (text as NSString).substring(with: urlRange)
+            // 没有 scheme 时补 https://，与预览模式 normalizeHref 逻辑一致
+            if urlString.range(of: "^[a-zA-Z][a-zA-Z0-9+\\-.]*:", options: .regularExpression) == nil,
+               !urlString.hasPrefix("#") {
+                if urlString.hasPrefix("//") {
+                    urlString = "https:" + urlString
+                } else {
+                    urlString = "https://" + urlString
+                }
+            }
             guard let url = URL(string: urlString) else { return }
             storage.addAttribute(.link, value: url, range: m.range)
         }
