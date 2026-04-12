@@ -159,12 +159,23 @@ final class MainViewController: NSViewController, NSMenuItemValidation {
         pvc.applyFormat(command)
     }
 
+    @IBAction func applyBold(_ sender: Any?) {
+        applyFormat("bold")
+    }
+
+    @IBAction func applyItalic(_ sender: Any?) {
+        applyFormat("italic")
+    }
+
     // MARK: - Validation
 
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
         if menuItem.action == #selector(toggleMode(_:)) {
             menuItem.title = (mode == .source) ? "Switch to Preview" : "Switch to Source"
             return true
+        }
+        if menuItem.action == #selector(applyBold(_:)) || menuItem.action == #selector(applyItalic(_:)) {
+            return mode == .preview
         }
         return true
     }

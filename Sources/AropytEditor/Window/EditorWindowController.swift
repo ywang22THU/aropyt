@@ -8,6 +8,7 @@ import AppKit
 final class EditorWindowController: NSWindowController, NSWindowDelegate {
 
     private var mainVC: MainViewController?
+    private var isObservingShortcutChanges = false
 
     convenience init() {
         let style: NSWindow.StyleMask = [.titled, .closable, .miniaturizable, .resizable]
@@ -36,8 +37,15 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         // 通过 representedObject 也传一份，方便 VC 内部访问
         vc.representedObject = document
 
+        startObservingShortcutChangesIfNeeded()
+        updateToolbarTooltips()
+
         // 触发首次加载
         vc.reloadFromDocument()
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
     }
 
     // MARK: - Toolbar
@@ -48,6 +56,37 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         toolbar.allowsUserCustomization = false
         toolbar.displayMode = .iconOnly
         return toolbar
+    }
+
+    private func startObservingShortcutChangesIfNeeded() {
+        guard !isObservingShortcutChanges else { return }
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(shortcutsDidChange(_:)),
+            name: ShortcutManager.didChangeNotification,
+            object: ShortcutManager.shared
+        )
+        isObservingShortcutChanges = true
+    }
+
+    @objc private func shortcutsDidChange(_ notification: Notification) {
+        updateToolbarTooltips()
+    }
+
+    private func updateToolbarTooltips() {
+        guard let items = window?.toolbar?.items else { return }
+        let manager = ShortcutManager.shared
+        for item in items {
+            if item.itemIdentifier == Self.toggleModeItemID {
+                item.toolTip = "切换源码 / 预览模式 (\(manager.shortcut(for: .toggleMode).formattedLabel))"
+            } else if item.itemIdentifier == Self.settingsItemID {
+                item.toolTip = "Settings (\(manager.shortcut(for: .settings).formattedLabel))"
+            } else if item.itemIdentifier == Self.formatButtons[0].id {
+                item.toolTip = "粗体（仅预览模式，\(manager.shortcut(for: .bold).formattedLabel)）"
+            } else if item.itemIdentifier == Self.formatButtons[1].id {
+                item.toolTip = "斜体（仅预览模式，\(manager.shortcut(for: .italic).formattedLabel)）"
+            }
+        }
     }
 
     /// 描述一个格式化按钮的元数据
@@ -96,6 +135,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
 extension EditorWindowController: NSToolbarDelegate {
 
     static let toggleModeItemID = NSToolbarItem.Identifier("AropytEditor.ToggleMode")
+    static let settingsItemID   = NSToolbarItem.Identifier("AropytEditor.Settings")
 
     func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
         var ids: [NSToolbarItem.Identifier] = []
@@ -104,11 +144,12 @@ extension EditorWindowController: NSToolbarDelegate {
         }
         ids.append(.flexibleSpace)
         ids.append(Self.toggleModeItemID)
+        ids.append(Self.settingsItemID)
         return ids
     }
 
     func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        var ids: [NSToolbarItem.Identifier] = [.flexibleSpace, .space, Self.toggleModeItemID]
+        var ids: [NSToolbarItem.Identifier] = [.flexibleSpace, .space, Self.toggleModeItemID, Self.settingsItemID]
         for btn in Self.formatButtons {
             ids.append(btn.id)
         }
@@ -122,17 +163,33 @@ extension EditorWindowController: NSToolbarDelegate {
             let item = NSToolbarItem(itemIdentifier: itemIdentifier)
             item.label = "Source / Preview"
             item.paletteLabel = "Source / Preview"
-            item.toolTip = "切换源码 / 预览模式 (⌘⇧P)"
+            item.toolTip = "切换源码 / 预览模式 (\(ShortcutManager.shared.shortcut(for: .toggleMode).formattedLabel))"
             item.image = NSImage(systemSymbolName: "doc.richtext", accessibilityDescription: "Toggle")
             item.target = self
             item.action = #selector(toggleModeFromToolbar(_:))
+            return item
+        }
+        if itemIdentifier == Self.settingsItemID {
+            let item = NSToolbarItem(itemIdentifier: itemIdentifier)
+            item.label = "Settings"
+            item.paletteLabel = "Settings"
+            item.toolTip = "Settings (\(ShortcutManager.shared.shortcut(for: .settings).formattedLabel))"
+            item.image = NSImage(systemSymbolName: "gear", accessibilityDescription: "Settings")
+            item.target = self
+            item.action = #selector(openSettingsFromToolbar(_:))
             return item
         }
         if let btn = Self.formatButtons.first(where: { $0.id == itemIdentifier }) {
             let item = NSToolbarItem(itemIdentifier: itemIdentifier)
             item.label = btn.label
             item.paletteLabel = btn.label
-            item.toolTip = btn.tooltip
+            if btn.command == "bold" {
+                item.toolTip = "粗体（仅预览模式，\(ShortcutManager.shared.shortcut(for: .bold).formattedLabel)）"
+            } else if btn.command == "italic" {
+                item.toolTip = "斜体（仅预览模式，\(ShortcutManager.shared.shortcut(for: .italic).formattedLabel)）"
+            } else {
+                item.toolTip = btn.tooltip
+            }
             item.image = NSImage(systemSymbolName: btn.symbol,
                                  accessibilityDescription: btn.label)
                 ?? NSImage(systemSymbolName: "questionmark", accessibilityDescription: nil)
@@ -143,6 +200,10 @@ extension EditorWindowController: NSToolbarDelegate {
             return item
         }
         return nil
+    }
+
+    @objc private func openSettingsFromToolbar(_ sender: Any?) {
+        SettingsWindowController.shared.showWindow()
     }
 
     @objc private func toggleModeFromToolbar(_ sender: Any?) {

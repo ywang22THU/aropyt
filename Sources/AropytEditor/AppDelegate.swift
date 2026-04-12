@@ -2,8 +2,16 @@ import AppKit
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
 
+    private var configurableMenuItems: [ShortcutAction: NSMenuItem] = [:]
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         installMenuBar()
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(shortcutsDidChange(_:)),
+            name: ShortcutManager.didChangeNotification,
+            object: ShortcutManager.shared
+        )
         // 不要在这里手动调 newDocument —— NSDocumentController 会通过
         // applicationShouldOpenUntitledFile / applicationOpenUntitledFile 自动开一个，
         // 重复调用会出现两个空白窗口。
@@ -45,6 +53,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         action: #selector(NSApplication.unhideAllApplications(_:)),
                         keyEquivalent: "")
         appMenu.addItem(.separator())
+        let settingsItem = NSMenuItem(title: "Settings…",
+                                      action: #selector(openSettings(_:)),
+                                      keyEquivalent: "")
+        appMenu.addItem(settingsItem)
+        configurableMenuItems[.settings] = settingsItem
+        appMenu.addItem(.separator())
         appMenu.addItem(withTitle: "Quit AropytEditor",
                         action: #selector(NSApplication.terminate(_:)),
                         keyEquivalent: "q")
@@ -54,19 +68,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let fileMenuItem = NSMenuItem()
         mainMenu.addItem(fileMenuItem)
         let fileMenu = NSMenu(title: "File")
-        fileMenu.addItem(withTitle: "New",
-                         action: #selector(NSDocumentController.newDocument(_:)),
-                         keyEquivalent: "n")
-        fileMenu.addItem(withTitle: "Open…",
-                         action: #selector(NSDocumentController.openDocument(_:)),
-                         keyEquivalent: "o")
+        let newItem = NSMenuItem(title: "New",
+                                 action: #selector(NSDocumentController.newDocument(_:)),
+                                 keyEquivalent: "")
+        fileMenu.addItem(newItem)
+        configurableMenuItems[.newDocument] = newItem
+
+        let openItem = NSMenuItem(title: "Open…",
+                                  action: #selector(NSDocumentController.openDocument(_:)),
+                                  keyEquivalent: "")
+        fileMenu.addItem(openItem)
+        configurableMenuItems[.openDocument] = openItem
         fileMenu.addItem(.separator())
-        fileMenu.addItem(withTitle: "Close",
-                         action: #selector(NSWindow.performClose(_:)),
-                         keyEquivalent: "w")
-        fileMenu.addItem(withTitle: "Save",
-                         action: #selector(NSDocument.save(_:)),
-                         keyEquivalent: "s")
+        let closeItem = NSMenuItem(title: "Close",
+                                   action: #selector(NSWindow.performClose(_:)),
+                                   keyEquivalent: "")
+        fileMenu.addItem(closeItem)
+        configurableMenuItems[.close] = closeItem
+
+        let saveItem = NSMenuItem(title: "Save",
+                                  action: #selector(NSDocument.save(_:)),
+                                  keyEquivalent: "")
+        fileMenu.addItem(saveItem)
+        configurableMenuItems[.save] = saveItem
         let saveAs = NSMenuItem(title: "Save As…",
                                 action: #selector(NSDocument.saveAs(_:)),
                                 keyEquivalent: "S")
@@ -97,15 +121,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                          action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
         editMenuItem.submenu = editMenu
 
+        // Format menu
+        let formatMenuItem = NSMenuItem()
+        mainMenu.addItem(formatMenuItem)
+        let formatMenu = NSMenu(title: "Format")
+        let boldItem = NSMenuItem(title: "Bold",
+                                  action: #selector(MainViewController.applyBold(_:)),
+                                  keyEquivalent: "")
+        formatMenu.addItem(boldItem)
+        configurableMenuItems[.bold] = boldItem
+        let italicItem = NSMenuItem(title: "Italic",
+                                    action: #selector(MainViewController.applyItalic(_:)),
+                                    keyEquivalent: "")
+        formatMenu.addItem(italicItem)
+        configurableMenuItems[.italic] = italicItem
+        formatMenuItem.submenu = formatMenu
+
         // View menu
         let viewMenuItem = NSMenuItem()
         mainMenu.addItem(viewMenuItem)
         let viewMenu = NSMenu(title: "View")
         let toggleMode = NSMenuItem(title: "Toggle Source / Preview",
                                     action: #selector(MainViewController.toggleMode(_:)),
-                                    keyEquivalent: "p")
-        toggleMode.keyEquivalentModifierMask = [.command, .shift]
+                                    keyEquivalent: "")
         viewMenu.addItem(toggleMode)
+        configurableMenuItems[.toggleMode] = toggleMode
         viewMenuItem.submenu = viewMenu
 
         // Window menu
@@ -122,5 +162,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.windowsMenu = windowMenu
 
         NSApp.mainMenu = mainMenu
+        applyConfiguredShortcuts()
+    }
+
+    @objc private func openSettings(_ sender: Any?) {
+        SettingsWindowController.shared.showWindow()
+    }
+
+    @objc private func shortcutsDidChange(_ notification: Notification) {
+        applyConfiguredShortcuts()
+    }
+
+    private func applyConfiguredShortcuts() {
+        let manager = ShortcutManager.shared
+        for (action, item) in configurableMenuItems {
+            let shortcut = manager.shortcut(for: action)
+            item.keyEquivalent = shortcut.keyEquivalent
+            item.keyEquivalentModifierMask = shortcut.modifiers
+        }
     }
 }
