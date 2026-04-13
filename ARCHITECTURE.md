@@ -34,15 +34,25 @@ aropyt/
 │       │   ├── EditorWindowController.swift
 │       │   ├── MainViewController.swift     # 模式协调器（切换 source/preview）
 │       │   ├── SourceViewController.swift   # NSTextView + 正则高亮
-│       │   └── PreviewViewController.swift  # WKWebView 渲染
+│       │   └── PreviewViewController.swift  # WKWebView 渲染 + contenteditable 编辑
 │       ├── Highlighter/
 │       │   └── MarkdownHighlighter.swift    # 简单正则语法高亮
+│       ├── Settings/                        # ⌘, 打开的设置窗口
+│       │   ├── SettingsWindowController.swift
+│       │   ├── SettingsTabViewController.swift  # 左 sidebar + 右 container
+│       │   ├── ShortcutsTabViewController.swift # 录制 / 改绑快捷键
+│       │   ├── ShortcutManager.swift            # 数据层 + UserDefaults 持久化
+│       │   ├── ThemeTabViewController.swift     # Light / Dark / Follow System
+│       │   └── HelpTabViewController.swift
 │       └── Resources/
 │           ├── Info.plist             # 通过 linkerSettings 嵌入
-│           ├── preview.html           # WebView 模板
 │           ├── marked.umd.js          # MD → HTML
 │           ├── highlight.min.js       # 代码块高亮
-│           └── github-markdown.css    # GitHub 样式
+│           ├── turndown.js            # HTML → MD 反向转换
+│           ├── turndown-plugin-gfm.js # turndown 的 GFM 插件
+│           ├── github-markdown.css    # GitHub markdown body 样式
+│           ├── github.min.css         # highlight.js 亮色主题
+│           └── github-dark.min.css    # highlight.js 暗色主题
 ```
 
 ## 数据流

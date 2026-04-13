@@ -11,8 +11,9 @@ macOS 上的本地 Markdown 编辑器，使用 Swift + AppKit 开发，纯 Swift
 -   **预览模式**：基于 `WKWebView` + 本地 `marked.js` + `highlight.js`，支持完整 CommonMark/GFM
     -   粗体、斜体、删除线、列表、标题、代码块（带语法高亮）、表格、图片、链接、引用块、HR 等
 -   工具栏一键切换源码 / 预览模式
--   预览模式下的所见即所得编辑
+-   预览模式下的所见即所得编辑（基于 contenteditable + turndown 反向生成 markdown）
 -   预览模式 Cmd+点击 链接由系统浏览器打开
+-   Settings 窗口（`Cmd+,`）：自定义快捷键、主题（亮 / 暗 / 跟随系统）、Help
 
 ### 待实现
 
@@ -66,6 +67,17 @@ macOS 上的本地 Markdown 编辑器，使用 Swift + AppKit 开发，纯 Swift
 | --- | --- |
 | `MarkdownHighlighter.swift` | 源码模式的语法高亮器。基于 `NSRegularExpression` 的 9 条规则（标题、引用、列表、代码块围栏、行内代码、粗体、斜体、链接、图片、删除线），对 `NSTextStorage` 设置 `.foregroundColor` 和 `.font` 属性。**想加新的高亮规则、改高亮颜色时改这里。** |
 
+### `Sources/AropytEditor/Settings/`
+
+| 文件 | 作用 |
+| --- | --- |
+| `SettingsWindowController.swift` | Settings 窗口的单例 NSWindowController。`Cmd+,` 通过 `AppDelegate` 触发，内容是一个 `SettingsTabViewController`。**想改设置窗口尺寸、出现行为时改这里。** |
+| `SettingsTabViewController.swift` | 左右布局的设置主界面（`NSSplitViewController`）：左侧 sidebar 列出 Shortcuts / Theme / Help 三项，右侧 container 嵌入对应子 VC。**想加新的设置 tab 时改这里**（同时加对应的 tab VC）。 |
+| `ShortcutsTabViewController.swift` | Shortcuts tab。`NSTableView` 列出所有可绑定 action，点击行进入录制模式捕获新组合键，检测冲突并通过 `ShortcutManager` 持久化。**想改快捷键 UI / 录制行为时改这里。** |
+| `ShortcutManager.swift` | 快捷键的数据层：`ShortcutAction` 枚举（newDocument / open / save / close / toggleMode / bold / italic / settings）+ 默认绑定 + UserDefaults 持久化 + 变更通知。`AppDelegate` 通过它给菜单项动态设置 `keyEquivalent`。**想加新的可绑定动作时改这里。** |
+| `ThemeTabViewController.swift` | Theme tab。三选一：Follow System / Light / Dark，写入 `NSApp.appearance` 并持久化。 |
+| `HelpTabViewController.swift` | Help tab。只读 `NSTextView`，展示功能介绍文案。 |
+
 ### `Sources/AropytEditor/Resources/`
 
 | 文件 | 作用 |
@@ -73,6 +85,8 @@ macOS 上的本地 Markdown 编辑器，使用 Swift + AppKit 开发，纯 Swift
 | `Info.plist` | App 元信息。**通过 linker `-sectcreate` 嵌入**（不能作为 SPM 普通资源），所以在 `Package.swift` 的 `exclude:` 里排除。包含 `CFBundleDocumentTypes` 注册 `.md` 文件类型，以及 `NSDocumentClass = AropytEditor.MarkdownDocument`。**改 bundle id、版本号、文件类型支持时改这里**（同时记得改 `AppDocumentController` 里的硬编码）。 |
 | `marked.umd.js` | 第三方 Markdown→HTML 解析器（marked v12）。被预览 HTML 的 `<script src>` 加载。**想升级 marked 时替换这个文件。** |
 | `highlight.min.js` | 第三方代码块语法高亮库（highlight.js v11.9）。在预览 HTML 中调 `hljs.highlightElement` 高亮 `<pre><code>`。 |
+| `turndown.js` | 第三方 HTML→Markdown 反向转换库。预览模式下 `contenteditable` 编辑后，把当前 DOM 转回 markdown 写回 `document.text`。 |
+| `turndown-plugin-gfm.js` | turndown 的 GFM 插件，补齐表格 / 删除线 / 任务列表的反向转换。 |
 | `github.min.css` | highlight.js 的 GitHub light 主题。通过 `media="(prefers-color-scheme: light)"` 仅亮色模式生效。 |
 | `github-dark.min.css` | highlight.js 的 GitHub dark 主题。通过 `media="(prefers-color-scheme: dark)"` 仅暗色模式生效。 |
 | `github-markdown.css` | GitHub 风格的 markdown body 样式（标题、列表、引用、表格等）。 |
@@ -115,6 +129,9 @@ swift run AropytEditor
 | 保存 | `Cmd+S` |
 | 切换源码 / 预览 | `Cmd+Shift+P` |
 | 关闭窗口 | `Cmd+W` |
+| 打开 Settings | `Cmd+,` |
+
+> 上述快捷键均可在 Settings → Shortcuts 里改绑。
 
 ## 调试
 
@@ -137,6 +154,44 @@ lldb .build/debug/AropytEditor
 rm -rf .build
 swift build
 ```
+
+## 打包发布
+
+使用项目根目录的 `package.sh` 一键打包。脚本会自动执行 `swift build -c release`、组装 `.app` bundle、ad-hoc 签名，再生成指定格式的安装包，输出到 `dist/`。
+
+```sh
+./package.sh        # 默认打 DMG
+./package.sh dmg    # 明确指定 DMG
+./package.sh pkg    # 打 PKG（安装到 /Applications）
+```
+
+### 两种格式的区别
+
+| | DMG | PKG |
+|---|---|---|
+| 用户操作 | 挂载后拖 .app 到 Applications | 双击运行安装向导 |
+| 安装位置 | 用户自选 | 固定写入 `/Applications` |
+| 适用场景 | 独立分发、个人使用 | 企业/MDM 静默部署 |
+
+### 脚本步骤说明
+
+1. **编译**：`swift build -c release`，产物在 `.build/release/`
+2. **组装 .app**：
+   - `Contents/MacOS/AropytEditor` — 主二进制
+   - `Contents/Resources/AropytEditor_AropytEditor.bundle` — SPM 资源包（JS/CSS），代码通过 `Bundle.module` 定位
+   - `Contents/Info.plist` — 从 `Sources/AropytEditor/Resources/Info.plist` 复制（bundle 模式由系统读；裸跑时靠 Mach-O `__TEXT,__info_plist` 段）
+3. **签名**：`codesign --deep --sign -`（ad-hoc），无需 Apple 开发者账号，但接收方首次打开需右键→打开绕过 Gatekeeper
+4. **打包**：
+   - DMG：用 `create-dmg` 生成，窗口 560×340，app 图标居左、Applications 快捷方式居右（拖拽安装布局）；需提前 `brew install create-dmg`
+   - PKG：用 `pkgbuild --root … --install-location /Applications` 生成安装包
+
+### 正式分发
+
+Ad-hoc 签名在自己机器上可用，分发给他人需要：
+
+1. 申请 [Apple Developer Program](https://developer.apple.com/programs/)（$99/年）
+2. 用开发者证书替换 `codesign -s -` 中的 `-`
+3. 用 `xcrun notarytool` 向 Apple 提交 notarization，再 `staple` 回包
 
 ## 关键架构决策
 
