@@ -4,6 +4,25 @@
 
 ## 当前 Goal
 
+- 用户输入：现在模式切换似乎有大问题，我不知道是不是打包的结果，打包后的 /Users/renxiao/Desktop/pptx/README.md 都无法在预览模式下正常显示了。
+- 当前状态：已完成，用户手动验证打包后的 app 打开 `/Users/renxiao/Desktop/pptx/README.md` 后，源码模式正常，切到预览模式也恢复正常。
+- 本次修复：
+  - `EditorWindowController.setup(document:)` 显式触发 `MainViewController.view` 加载，避免首次 `reloadFromDocument()` 早于源码 view 创建。
+  - `MainViewController.reloadFromDocument()` 显式触发自身 view 加载。
+  - `SourceViewController.setText(_:)` 显式触发自身 view 加载，确保 `textView` 已创建后再写入文档文本。
+  - `PreviewViewController.renderInternal(markdown:)` 不再直接使用 `Bundle.module.resourceURL` 作为 WebView baseURL；新增资源目录探测逻辑，优先选择真正包含 `marked.umd.js` 的目录。
+  - 资源目录探测覆盖 SwiftPM 裸跑 resource bundle、打包 app 的 `Contents/Resources/AropytEditor_AropytEditor.bundle`，以及 bundle 内 `Contents/Resources` 嵌套形态。
+- 验证：
+  - `swift build` 通过。
+  - `./package.sh dmg` 通过，生成 `dist/AropytEditor.app` 和 `dist/Aropyt-0.1.0.dmg`。
+  - `codesign --verify --deep --strict --verbose=2 dist/AropytEditor.app` 通过。
+  - `test -f dist/AropytEditor.app/Contents/Resources/AropytEditor_AropytEditor.bundle/marked.umd.js` 通过。
+  - 用户确认修复后预览模式已经正常。
+
+## 已完成 Goal 记录
+
+### 初始化 CODE_MEMORY
+
 - 用户输入：初始化 MEMORY 文档，之后都用这个作为依据，agents.md 和 claude.md 已经过时，可以去掉，你需要根据代码和 architecture 来撰写 memory 文档。
 - 当前状态：已完成并验证；`AGENTS.md` 和 `CLAUDE.md` 已按目标移除，README / ARCHITECTURE 已改为引用 `CODE_MEMORY.md`。
 - 本次变更记录：

@@ -37,6 +37,10 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         // 通过 representedObject 也传一份，方便 VC 内部访问
         vc.representedObject = document
 
+        // 明确触发 loadView/viewDidLoad，避免打包 app 打开文件时
+        // reloadFromDocument 早于 SourceViewController.textView 创建。
+        _ = vc.view
+
         startObservingShortcutChangesIfNeeded()
         updateToolbarTooltips()
 

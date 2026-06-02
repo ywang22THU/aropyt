@@ -64,8 +64,51 @@ final class PreviewViewController: NSViewController, WKNavigationDelegate, WKScr
         isReady = false
         lastSentMarkdown = markdown
         let html = MarkdownRenderer.htmlDocument(for: markdown)
-        let baseURL = Bundle.module.resourceURL ?? Bundle.module.bundleURL
+        let baseURL = Self.resourceBaseURL()
         wv.loadHTMLString(html, baseURL: baseURL)
+    }
+
+    /// SwiftPM resource bundles can be laid out differently between `swift run`
+    /// and a manually assembled `.app`. Use the first directory that actually
+    /// contains the JS/CSS files required by MarkdownRenderer.
+    private static func resourceBaseURL() -> URL {
+        let resourceBundleName = "AropytEditor_AropytEditor.bundle"
+
+        let mainBundleCandidates = [
+            Bundle.main.resourceURL?.appendingPathComponent(resourceBundleName),
+            Bundle.main.bundleURL.appendingPathComponent(resourceBundleName),
+        ].compactMap { $0 }
+
+        if let url = firstUsableResourceDirectory(in: mainBundleCandidates) {
+            return url
+        }
+
+        let swiftPMBundle = Bundle.module
+        let swiftPMCandidates = [
+            swiftPMBundle.resourceURL,
+            swiftPMBundle.bundleURL,
+        ].compactMap { $0 }
+
+        return firstUsableResourceDirectory(in: swiftPMCandidates)
+            ?? swiftPMBundle.resourceURL
+            ?? swiftPMBundle.bundleURL
+    }
+
+    private static func firstUsableResourceDirectory(in candidates: [URL]) -> URL? {
+        let fileManager = FileManager.default
+        for candidate in candidates {
+            let directMarker = candidate.appendingPathComponent("marked.umd.js")
+            if fileManager.fileExists(atPath: directMarker.path) {
+                return candidate
+            }
+
+            let nestedResources = candidate.appendingPathComponent("Contents/Resources")
+            let nestedMarker = nestedResources.appendingPathComponent("marked.umd.js")
+            if fileManager.fileExists(atPath: nestedMarker.path) {
+                return nestedResources
+            }
+        }
+        return nil
     }
 
     /// 应用一个格式化命令（由 toolbar / 菜单调用）。

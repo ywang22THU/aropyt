@@ -65,6 +65,7 @@ final class SourceViewController: NSViewController, NSTextViewDelegate {
 
     /// 由外部（document 加载完成、模式切换）调用，强制设置内容并触发高亮。
     func setText(_ s: String) {
+        _ = self.view
         guard let tv = textView else { return }
         if tv.string != s {
             tv.string = s

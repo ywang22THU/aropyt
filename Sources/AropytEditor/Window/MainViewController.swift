@@ -50,6 +50,7 @@ final class MainViewController: NSViewController, NSMenuItemValidation {
 
     /// 由 WindowController 在 setup 之后调用，把 document 内容首次填进 view。
     func reloadFromDocument() {
+        _ = self.view
         guard let doc = self.document else { return }
         sourceVC.setText(doc.text)
         // 如果当前在预览模式（一般不会，新窗口默认源码），同步预览
