@@ -20,7 +20,7 @@ aropyt/
 ├── Package.swift
 ├── README.md
 ├── ARCHITECTURE.md
-├── CLAUDE.md
+├── CODE_MEMORY.md
 ├── Sources/
 │   ├── MarkdownCore/                  # 纯 Swift target，无 AppKit 依赖
 │   │   └── MarkdownRenderer.swift     # 把 markdown 字符串包进 HTML 模板

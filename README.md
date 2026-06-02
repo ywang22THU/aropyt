@@ -29,7 +29,7 @@ macOS 上的本地 Markdown 编辑器，使用 Swift + AppKit 开发，纯 Swift
 | `Package.swift` | SPM 构建配置。定义两个 target（`MarkdownCore` 和 `AropytEditor`），配置 Resources 处理规则，并通过 linker `-sectcreate __TEXT __info_plist` 把 Info.plist 嵌入可执行文件。**改 target / 资源 / 链接选项时改这里。** |
 | `README.md` | 本文件。 |
 | `ARCHITECTURE.md` | 架构设计、数据流、关键决策、P1 草图。设计层面的"为什么"。 |
-| `CLAUDE.md` | 给 AI 协作者的项目指引：构建命令、目录约定、AppKit 陷阱清单、P0/P1 边界。 |
+| `CODE_MEMORY.md` | 给 AI 协作者的当前开发依据：项目事实、架构约束、Goal 工作流、最近变更和验证记录。 |
 | `PROMPT.md` | 原始需求文档。功能优先级 P0/P1 来源。 |
 
 ### `Sources/MarkdownCore/`（纯 Swift，无 AppKit 依赖）
