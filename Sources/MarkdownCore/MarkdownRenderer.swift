@@ -217,6 +217,57 @@ public enum MarkdownRenderer {
 
                     // ---------- 暴露给 Swift 调用的格式化命令 ----------
                     // Swift 通过 evaluateJavaScript("window.aropytApplyFormat('bold')") 调用
+                    function selectedNode() {
+                        var sel = window.getSelection();
+                        if (!sel || sel.rangeCount === 0) return null;
+                        return sel.focusNode || sel.anchorNode;
+                    }
+                    function asElement(node) {
+                        if (!node) return null;
+                        return node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+                    }
+                    function closestTagFromSelection(tagName) {
+                        var el = asElement(selectedNode());
+                        if (!el) return null;
+                        tagName = tagName.toUpperCase();
+                        while (el && el !== content) {
+                            if (el.tagName === tagName) return el;
+                            el = el.parentElement;
+                        }
+                        return null;
+                    }
+                    function currentBlockTag() {
+                        var value = '';
+                        try {
+                            value = document.queryCommandValue('formatBlock') || '';
+                        } catch (e) {}
+                        value = String(value).replace(/[<>]/g, '').toLowerCase();
+                        if (value) return value;
+
+                        var el = asElement(selectedNode());
+                        while (el && el !== content) {
+                            var tag = el.tagName ? el.tagName.toLowerCase() : '';
+                            if (['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'pre', 'blockquote', 'li', 'div'].indexOf(tag) !== -1) {
+                                return tag;
+                            }
+                            el = el.parentElement;
+                        }
+                        return '';
+                    }
+                    function setBlock(tagName) {
+                        document.execCommand('formatBlock', false, tagName.toUpperCase());
+                    }
+                    function toggleBlock(tagName) {
+                        var normalized = tagName.toLowerCase();
+                        setBlock(currentBlockTag() === normalized ? 'P' : tagName);
+                    }
+                    function toggleCodeBlock() {
+                        if (currentBlockTag() === 'pre' || closestTagFromSelection('pre')) {
+                            setBlock('P');
+                        } else {
+                            setBlock('PRE');
+                        }
+                    }
                     window.aropytApplyFormat = function(cmd, arg) {
                         content.focus();
                         switch (cmd) {
@@ -228,13 +279,13 @@ public enum MarkdownRenderer {
                             case 'h1':
                             case 'h2':
                             case 'h3':
-                                document.execCommand('formatBlock', false, cmd.toUpperCase());
+                                toggleBlock(cmd);
                                 break;
                             case 'paragraph':
-                                document.execCommand('formatBlock', false, 'P');
+                                setBlock('P');
                                 break;
                             case 'blockquote':
-                                document.execCommand('formatBlock', false, 'BLOCKQUOTE');
+                                setBlock('BLOCKQUOTE');
                                 break;
                             case 'ul':
                                 document.execCommand('insertUnorderedList', false, null);
@@ -247,7 +298,7 @@ public enum MarkdownRenderer {
                                 wrapSelection('code');
                                 break;
                             case 'codeblock':
-                                document.execCommand('formatBlock', false, 'PRE');
+                                toggleCodeBlock();
                                 break;
                             default:
                                 break;

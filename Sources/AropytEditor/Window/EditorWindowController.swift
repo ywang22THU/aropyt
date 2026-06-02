@@ -82,13 +82,13 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         let manager = ShortcutManager.shared
         for item in items {
             if item.itemIdentifier == Self.toggleModeItemID {
-                item.toolTip = "切换源码 / 预览模式 (\(manager.shortcut(for: .toggleMode).formattedLabel))"
+                item.setTooltipOnItemAndView("切换源码 / 预览模式 (\(manager.shortcut(for: .toggleMode).formattedLabel))")
             } else if item.itemIdentifier == Self.settingsItemID {
-                item.toolTip = "Settings (\(manager.shortcut(for: .settings).formattedLabel))"
+                item.setTooltipOnItemAndView("Settings (\(manager.shortcut(for: .settings).formattedLabel))")
             } else if item.itemIdentifier == Self.formatButtons[0].id {
-                item.toolTip = "粗体（仅预览模式，\(manager.shortcut(for: .bold).formattedLabel)）"
+                item.setTooltipOnItemAndView("粗体（仅预览模式，\(manager.shortcut(for: .bold).formattedLabel)）")
             } else if item.itemIdentifier == Self.formatButtons[1].id {
-                item.toolTip = "斜体（仅预览模式，\(manager.shortcut(for: .italic).formattedLabel)）"
+                item.setTooltipOnItemAndView("斜体（仅预览模式，\(manager.shortcut(for: .italic).formattedLabel)）")
             }
         }
     }
@@ -167,43 +167,77 @@ extension EditorWindowController: NSToolbarDelegate {
             let item = NSToolbarItem(itemIdentifier: itemIdentifier)
             item.label = "Source / Preview"
             item.paletteLabel = "Source / Preview"
-            item.toolTip = "切换源码 / 预览模式 (\(ShortcutManager.shared.shortcut(for: .toggleMode).formattedLabel))"
+            let tooltip = "切换源码 / 预览模式 (\(ShortcutManager.shared.shortcut(for: .toggleMode).formattedLabel))"
+            item.setTooltipOnItemAndView(tooltip)
             item.image = NSImage(systemSymbolName: "doc.richtext", accessibilityDescription: "Toggle")
-            item.target = self
-            item.action = #selector(toggleModeFromToolbar(_:))
+            item.view = makeToolbarButton(symbol: "doc.richtext",
+                                          accessibilityDescription: "Toggle",
+                                          tooltip: tooltip,
+                                          tag: 0,
+                                          action: #selector(toggleModeFromToolbar(_:)))
             return item
         }
         if itemIdentifier == Self.settingsItemID {
             let item = NSToolbarItem(itemIdentifier: itemIdentifier)
             item.label = "Settings"
             item.paletteLabel = "Settings"
-            item.toolTip = "Settings (\(ShortcutManager.shared.shortcut(for: .settings).formattedLabel))"
+            let tooltip = "Settings (\(ShortcutManager.shared.shortcut(for: .settings).formattedLabel))"
+            item.setTooltipOnItemAndView(tooltip)
             item.image = NSImage(systemSymbolName: "gear", accessibilityDescription: "Settings")
-            item.target = self
-            item.action = #selector(openSettingsFromToolbar(_:))
+            item.view = makeToolbarButton(symbol: "gear",
+                                          accessibilityDescription: "Settings",
+                                          tooltip: tooltip,
+                                          tag: 0,
+                                          action: #selector(openSettingsFromToolbar(_:)))
             return item
         }
         if let btn = Self.formatButtons.first(where: { $0.id == itemIdentifier }) {
             let item = NSToolbarItem(itemIdentifier: itemIdentifier)
             item.label = btn.label
             item.paletteLabel = btn.label
+            let tooltip: String
             if btn.command == "bold" {
-                item.toolTip = "粗体（仅预览模式，\(ShortcutManager.shared.shortcut(for: .bold).formattedLabel)）"
+                tooltip = "粗体（仅预览模式，\(ShortcutManager.shared.shortcut(for: .bold).formattedLabel)）"
             } else if btn.command == "italic" {
-                item.toolTip = "斜体（仅预览模式，\(ShortcutManager.shared.shortcut(for: .italic).formattedLabel)）"
+                tooltip = "斜体（仅预览模式，\(ShortcutManager.shared.shortcut(for: .italic).formattedLabel)）"
             } else {
-                item.toolTip = btn.tooltip
+                tooltip = btn.tooltip
             }
+            item.setTooltipOnItemAndView(tooltip)
             item.image = NSImage(systemSymbolName: btn.symbol,
                                  accessibilityDescription: btn.label)
                 ?? NSImage(systemSymbolName: "questionmark", accessibilityDescription: nil)
-            item.target = self
-            item.action = #selector(formatItemAction(_:))
             // 用 tag 编码命令在按钮列表里的索引
             item.tag = Self.formatButtons.firstIndex(where: { $0.id == itemIdentifier }) ?? 0
+            item.view = makeToolbarButton(symbol: btn.symbol,
+                                          accessibilityDescription: btn.label,
+                                          tooltip: tooltip,
+                                          tag: item.tag,
+                                          action: #selector(formatItemAction(_:)))
             return item
         }
         return nil
+    }
+
+    private func makeToolbarButton(symbol: String,
+                                   accessibilityDescription: String,
+                                   tooltip: String,
+                                   tag: Int,
+                                   action: Selector) -> NSButton {
+        let button = HoverableToolbarButton(frame: NSRect(x: 0, y: 0, width: 32, height: 28))
+        button.bezelStyle = .texturedRounded
+        button.isBordered = false
+        button.imagePosition = .imageOnly
+        button.imageScaling = .scaleProportionallyDown
+        button.image = NSImage(systemSymbolName: symbol,
+                               accessibilityDescription: accessibilityDescription)
+            ?? NSImage(systemSymbolName: "questionmark", accessibilityDescription: nil)
+        button.toolTip = tooltip
+        button.tag = tag
+        button.target = self
+        button.action = action
+        button.setAccessibilityLabel(accessibilityDescription)
+        return button
     }
 
     @objc private func openSettingsFromToolbar(_ sender: Any?) {
@@ -215,10 +249,37 @@ extension EditorWindowController: NSToolbarDelegate {
     }
 
     @objc private func formatItemAction(_ sender: Any?) {
-        guard let item = sender as? NSToolbarItem else { return }
-        let idx = item.tag
+        let idx: Int
+        if let item = sender as? NSToolbarItem {
+            idx = item.tag
+        } else if let button = sender as? NSButton {
+            idx = button.tag
+        } else {
+            return
+        }
         guard idx >= 0 && idx < Self.formatButtons.count else { return }
         let cmd = Self.formatButtons[idx].command
         mainVC?.applyFormat(cmd)
+    }
+}
+
+private final class HoverableToolbarButton: NSButton {
+    override var intrinsicContentSize: NSSize {
+        return NSSize(width: 32, height: 28)
+    }
+
+    override var acceptsFirstResponder: Bool {
+        return false
+    }
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
+        return true
+    }
+}
+
+private extension NSToolbarItem {
+    func setTooltipOnItemAndView(_ tooltip: String) {
+        self.toolTip = tooltip
+        self.view?.toolTip = tooltip
     }
 }
