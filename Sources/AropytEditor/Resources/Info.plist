@@ -10,6 +10,8 @@
     <string>com.aropyt.AropytEditor</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
+    <key>CFBundleIconFile</key>
+    <string>AropytEditor.icns</string>
     <key>CFBundleName</key>
     <string>AropytEditor</string>
     <key>CFBundleDisplayName</key>

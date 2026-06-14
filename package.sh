@@ -41,6 +41,10 @@ cp -R "$BUILD_DIR/${APP_NAME}_${APP_NAME}.bundle" \
 cp "$SCRIPT_DIR/Sources/$APP_NAME/Resources/Info.plist" \
    "$APP_BUNDLE/Contents/Info.plist"
 
+# App icon —— CFBundleIconFile 从 Contents/Resources 顶层读取
+cp "$SCRIPT_DIR/Sources/$APP_NAME/Resources/AropytEditor.icns" \
+   "$APP_BUNDLE/Contents/Resources/AropytEditor.icns"
+
 # ── 第 3 步：Ad-hoc 签名 ─────────────────────────────────────────────────────
 # 无 Apple 开发者账号时用 "-"；分发给他人需换成真实证书并 notarize
 echo "==> [3/4] ad-hoc 签名"
