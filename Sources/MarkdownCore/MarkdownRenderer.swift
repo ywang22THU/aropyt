@@ -24,6 +24,7 @@ public enum MarkdownRenderer {
             <link rel="stylesheet" href="github-markdown.css">
             <link rel="stylesheet" href="github.min.css" media="(prefers-color-scheme: light)">
             <link rel="stylesheet" href="github-dark.min.css" media="(prefers-color-scheme: dark)">
+            <link rel="stylesheet" href="katex.min.css">
             <style>
                 :root { color-scheme: light dark; }
                 body {
@@ -75,6 +76,22 @@ public enum MarkdownRenderer {
                 }
                 /* contenteditable 下，链接默认无法点击；视觉上提示 cmd+click */
                 .markdown-body a { cursor: pointer; }
+                .markdown-body .katex {
+                    font-size: 1.06em;
+                }
+                .markdown-body .katex-display {
+                    overflow-x: auto;
+                    overflow-y: hidden;
+                    padding: 4px 0;
+                }
+                .markdown-body .aropyt-math-block {
+                    display: block;
+                    margin: 1em 0;
+                    text-align: center;
+                }
+                .markdown-body .aropyt-math-block > .katex-display {
+                    margin: 0;
+                }
                 @media (prefers-color-scheme: dark) {
                     .markdown-body pre {
                         background: #161b22;
@@ -90,6 +107,8 @@ public enum MarkdownRenderer {
             </style>
             <script src="marked.umd.js"></script>
             <script src="highlight.min.js"></script>
+            <script src="katex.min.js"></script>
+            <script src="auto-render.min.js"></script>
             <script src="turndown.js"></script>
             <script src="turndown-plugin-gfm.js"></script>
         </head>
@@ -99,6 +118,141 @@ public enum MarkdownRenderer {
                 (function() {
                     var raw = \(payload);
                     var content = document.getElementById('content');
+                    var protectedMathSegments = [];
+
+                    function mathKey(index) {
+                        return 'AROPYTMATHSEGMENT' + index + 'END';
+                    }
+
+                    function stashMath(segment, display) {
+                        var key = mathKey(protectedMathSegments.length);
+                        protectedMathSegments.push({
+                            segment: segment,
+                            display: display
+                        });
+                        return key;
+                    }
+
+                    function findBackslashDelimitedEnd(markdown, start, closeChar) {
+                        for (var i = start; i < markdown.length - 1; i++) {
+                            if (markdown.charCodeAt(i) === 92 && markdown.charAt(i + 1) === closeChar) {
+                                return i + 2;
+                            }
+                        }
+                        return -1;
+                    }
+
+                    function findInlineDollarEnd(markdown, start) {
+                        for (var i = start; i < markdown.length; i++) {
+                            var ch = markdown.charAt(i);
+                            if (ch === '\\n') return -1;
+                            if (ch === '$' && markdown.charAt(i - 1) !== '\\\\') {
+                                return i + 1;
+                            }
+                        }
+                        return -1;
+                    }
+
+                    function protectMathSegments(markdown) {
+                        protectedMathSegments = [];
+                        var output = '';
+                        var i = 0;
+                        while (i < markdown.length) {
+                            if (markdown.startsWith('$$', i)) {
+                                var displayDollarEnd = markdown.indexOf('$$', i + 2);
+                                if (displayDollarEnd !== -1) {
+                                    output += stashMath(markdown.slice(i, displayDollarEnd + 2), true);
+                                    i = displayDollarEnd + 2;
+                                    continue;
+                                }
+                            }
+
+                            if (markdown.charCodeAt(i) === 92 && markdown.charAt(i + 1) === '[') {
+                                var displayBracketEnd = findBackslashDelimitedEnd(markdown, i + 2, ']');
+                                if (displayBracketEnd !== -1) {
+                                    output += stashMath(markdown.slice(i, displayBracketEnd), true);
+                                    i = displayBracketEnd;
+                                    continue;
+                                }
+                            }
+
+                            if (markdown.charCodeAt(i) === 92 && markdown.charAt(i + 1) === '(') {
+                                var inlineParenEnd = findBackslashDelimitedEnd(markdown, i + 2, ')');
+                                if (inlineParenEnd !== -1) {
+                                    output += stashMath(markdown.slice(i, inlineParenEnd), false);
+                                    i = inlineParenEnd;
+                                    continue;
+                                }
+                            }
+
+                            if (markdown.charAt(i) === '$'
+                                && markdown.charAt(i + 1) !== '$'
+                                && markdown.charAt(i - 1) !== '\\\\'
+                                && markdown.charAt(i + 1) !== ' ') {
+                                var inlineDollarEnd = findInlineDollarEnd(markdown, i + 1);
+                                if (inlineDollarEnd !== -1 && markdown.charAt(inlineDollarEnd - 2) !== ' ') {
+                                    output += stashMath(markdown.slice(i, inlineDollarEnd), false);
+                                    i = inlineDollarEnd;
+                                    continue;
+                                }
+                            }
+
+                            output += markdown.charAt(i);
+                            i += 1;
+                        }
+                        return output;
+                    }
+
+                    function escapeHtmlText(value) {
+                        return value.replace(/[&<>]/g, function(ch) {
+                            if (ch === '&') return '&amp;';
+                            if (ch === '<') return '&lt;';
+                            return '&gt;';
+                        });
+                    }
+
+                    function restoreMathSegments(html) {
+                        var restored = html;
+                        protectedMathSegments.forEach(function(record, index) {
+                            var key = mathKey(index);
+                            var mathHtml = escapeHtmlText(record.segment);
+                            if (record.display) {
+                                var blockHtml = '<div class="aropyt-math-block">' + mathHtml + '</div>';
+                                restored = restored.replaceAll('<p>' + key + '</p>', blockHtml);
+                                restored = restored.replaceAll(key, blockHtml);
+                            } else {
+                                restored = restored.replaceAll(key, mathHtml);
+                            }
+                        });
+                        return restored;
+                    }
+
+                    function renderMath() {
+                        if (!window.renderMathInElement) return;
+                        try {
+                            renderMathInElement(content, {
+                                delimiters: [
+                                    { left: '$$', right: '$$', display: true },
+                                    { left: '\\\\[', right: '\\\\]', display: true },
+                                    { left: '\\\\(', right: '\\\\)', display: false },
+                                    { left: '$', right: '$', display: false }
+                                ],
+                                throwOnError: false,
+                                strict: 'ignore',
+                                ignoredTags: [
+                                    'script',
+                                    'noscript',
+                                    'style',
+                                    'textarea',
+                                    'pre',
+                                    'code',
+                                    'option'
+                                ]
+                            });
+                        } catch (e) {
+                            console.error('math render failed:', e);
+                        }
+                    }
 
                     // ---------- marked: markdown -> HTML ----------
                     if (window.marked) {
@@ -108,10 +262,11 @@ public enum MarkdownRenderer {
                             headerIds: true,
                             mangle: false
                         });
-                        content.innerHTML = marked.parse(raw);
+                        content.innerHTML = restoreMathSegments(marked.parse(protectMathSegments(raw)));
                     } else {
                         content.textContent = raw;
                     }
+                    renderMath();
                     if (window.hljs) {
                         document.querySelectorAll('pre code').forEach(function(el) {
                             try { hljs.highlightElement(el); } catch (e) {}
@@ -131,6 +286,37 @@ public enum MarkdownRenderer {
                         if (window.turndownPluginGfm) {
                             turndownService.use(window.turndownPluginGfm.gfm);
                         }
+                        function texFromKatexNode(node) {
+                            var annotation = node.querySelector
+                                ? node.querySelector('annotation[encoding="application/x-tex"]')
+                                : null;
+                            return annotation ? (annotation.textContent || '') : '';
+                        }
+                        turndownService.addRule('katexDisplayMath', {
+                            filter: function(node) {
+                                return node.nodeType === 1
+                                    && node.classList
+                                    && node.classList.contains('katex-display');
+                            },
+                            replacement: function(_, node) {
+                                var tex = texFromKatexNode(node);
+                                return tex ? '\\n\\n$$\\n' + tex + '\\n$$\\n\\n' : '';
+                            }
+                        });
+                        turndownService.addRule('katexInlineMath', {
+                            filter: function(node) {
+                                return node.nodeType === 1
+                                    && node.classList
+                                    && node.classList.contains('katex')
+                                    && !(node.parentElement
+                                        && node.parentElement.classList
+                                        && node.parentElement.classList.contains('katex-display'));
+                            },
+                            replacement: function(_, node) {
+                                var tex = texFromKatexNode(node);
+                                return tex ? '$' + tex + '$' : '';
+                            }
+                        });
                         // 让 highlight.js 的 <span class="hljs-..."> 不污染输出
                         turndownService.addRule('hljsCode', {
                             filter: function(node) {

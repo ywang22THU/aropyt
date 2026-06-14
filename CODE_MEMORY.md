@@ -42,7 +42,7 @@ swift run AropytEditor
 - `Sources/AropytEditor/Window/PreviewViewController.swift`：预览模式，`WKWebView` 渲染、contenteditable 编辑、JS bridge、链接打开、格式化命令。
 - `Sources/AropytEditor/Highlighter/MarkdownHighlighter.swift`：源码模式正则高亮，并给 Markdown 链接设置 `.link` attribute 以支持 Cmd+Click。
 - `Sources/AropytEditor/Settings/`：Settings 窗口、Shortcuts、Theme、Help。`ShortcutManager` 是快捷键数据层。
-- `Sources/AropytEditor/Resources/`：`marked.umd.js`、`highlight.min.js`、`turndown.js`、`turndown-plugin-gfm.js`、GitHub CSS 主题、`Info.plist`。
+- `Sources/AropytEditor/Resources/`：`marked.umd.js`、`highlight.min.js`、`katex.min.js`、`auto-render.min.js`、`katex.min.css`、`fonts/` KaTeX woff2 字体、`turndown.js`、`turndown-plugin-gfm.js`、GitHub CSS 主题、`Info.plist`。
 - `package.sh`：release build、组装 `.app`、ad-hoc 签名、生成 DMG/PKG。
 - `README.md`：功能、目录、构建、打包说明。
 - `ARCHITECTURE.md`：架构设计、数据流、关键决策。
@@ -87,6 +87,7 @@ swift run AropytEditor
 
 - `PreviewViewController.webView` 懒加载；`load(markdown:)` 先 `_ = self.view`。
 - `MarkdownRenderer.htmlDocument(for:)` 生成完整 HTML，加载本地 JS/CSS 并把原始 Markdown 用 JSON 字符串字面量安全嵌入。
+- 预览模式用本地 KaTeX 渲染数学公式，支持 `$...$`、`$$...$$`、`\\(...\\)`、`\\[...\\]`。进入 `marked.parse` 前会保护完整数学片段，避免 `_`、`<`、`&` 或 `\\[` 被 Markdown 解析破坏。
 - 预览 `<article>` 是 `contenteditable=true`；input 事件经 turndown 转回 Markdown，通过 `markdownChanged` message handler 回 Swift。
 - `openLink` message handler 使用系统浏览器打开链接。
 - `previewReady` 标记 WebView 可接收格式化命令。
@@ -100,6 +101,7 @@ swift run AropytEditor
 - 源码模式编辑和语法高亮。
 - 源码模式 Cmd+Click 打开链接。
 - 预览模式 Markdown 渲染和代码高亮。
+- 预览模式数学公式渲染（KaTeX，本地离线资源）。
 - 预览模式 contenteditable 编辑，并通过 turndown 回写 Markdown。
 - 预览模式 Cmd+Click 打开链接。
 - toolbar 切换源码 / 预览。

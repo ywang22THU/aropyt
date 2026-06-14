@@ -10,7 +10,7 @@ P1 阶段加入 WYSIWYG 预览编辑、表格/图片/链接交互。
 - **语言**：Swift 6.x
 - **UI**：AppKit（NSDocument 架构）
 - **构建**：Swift Package Manager（脱 Xcode 也能 `swift build`）
-- **预览渲染**：WKWebView + marked.js + highlight.js（本地资源，离线可用）
+- **预览渲染**：WKWebView + marked.js + highlight.js + KaTeX（本地资源，离线可用）
 - **平台**：macOS 13+（Ventura 起步，使用 modern APIs）
 
 ## 模块结构
@@ -48,6 +48,10 @@ aropyt/
 │           ├── Info.plist             # 通过 linkerSettings 嵌入
 │           ├── marked.umd.js          # MD → HTML
 │           ├── highlight.min.js       # 代码块高亮
+│           ├── katex.min.js           # TeX 数学公式渲染
+│           ├── auto-render.min.js     # 扫描并渲染公式定界符
+│           ├── katex.min.css          # KaTeX 样式
+│           ├── fonts/                 # KaTeX woff2 字体
 │           ├── turndown.js            # HTML → MD 反向转换
 │           ├── turndown-plugin-gfm.js # turndown 的 GFM 插件
 │           ├── github-markdown.css    # GitHub markdown body 样式
@@ -113,10 +117,10 @@ tv.textContainer?.containerSize = NSSize(width: scroll.contentSize.width, height
 ### 6. 预览渲染流程
 
 1. `MarkdownRenderer.htmlDocument(for: text, baseURL:)` 拼出完整 HTML：
-   - 头部 `<link>` 样式 + `<script src="marked.umd.js">` + `<script src="highlight.min.js">`
+   - 头部 `<link>` 样式 + `<script src="marked.umd.js">` + `<script src="highlight.min.js">` + KaTeX 资源
    - body 里塞一个 `<div id="content"></div>`
    - 用 `JSON.stringify` 内联原始 markdown 字符串，避免转义错误
-   - 末尾 `<script>` 调 `marked.parse` 写入 `#content`，再对 `pre code` 跑 `hljs.highlightAll()`
+   - 末尾 `<script>` 先保护数学片段，再调 `marked.parse` 写入 `#content`，然后用 KaTeX 渲染公式并对 `pre code` 跑 `hljs.highlightAll()`
 2. WebView 用 `loadHTMLString(_:baseURL:)`，baseURL 指向 Resources 目录，让 `<script src>` 和图片相对路径生效。
 
 ## P1 设计草图（不在本次实现范围）
