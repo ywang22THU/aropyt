@@ -62,7 +62,7 @@
 "settings.window.title" = "设置";
 "settings.tabs.shortcuts" = "快捷键";
 "settings.tabs.theme" = "主题";
-"settings.tabs.help" = "帮助";
+"settings.tabs.about" = "关于";
 "settings.theme.title" = "外观";
 "settings.theme.option.system" = "跟随系统";
 "settings.theme.option.light" = "浅色";
@@ -93,22 +93,16 @@
 "shortcut.key.cmd" = "Command";
 "shortcut.key.space" = "空格";
 
-"settings.help.title" = "AropytEditor 帮助";
-"settings.help.overview.heading" = "概览";
-"settings.help.overview.body" = "AropytEditor 是一款轻量的 macOS Markdown 编辑器，支持源码编辑、语法高亮，以及由 marked.js 驱动的实时预览模式。";
-"settings.help.editing_modes.heading" = "编辑模式";
-"settings.help.editing_modes.source" = "• 源码模式 — 编辑原始 Markdown，并显示语法高亮。";
-"settings.help.editing_modes.preview" = "• 预览模式 — 查看渲染后的 HTML 输出和代码高亮。";
-"settings.help.keyboard_shortcuts.heading" = "键盘快捷键";
-"settings.help.shortcuts.new_document" = "新建文档";
-"settings.help.shortcuts.open_document" = "打开文档";
-"settings.help.shortcuts.save" = "保存";
-"settings.help.shortcuts.close" = "关闭窗口";
-"settings.help.shortcuts.toggle_mode" = "切换源码 / 预览模式";
-"settings.help.shortcuts.settings" = "打开设置";
-"settings.help.links.heading" = "链接";
-"settings.help.links.body" = "在源码模式下，按住 Command 点击链接会在浏览器中打开。没有协议的链接（例如 www.example.com）会自动补上 https://。";
-"settings.help.toolbar.heading" = "工具栏";
-"settings.help.toolbar.body" = "工具栏提供常用格式命令：粗体、斜体、删除线、标题、代码、列表和引用块。";
+"settings.about.version" = "版本 %@";
+"settings.about.version_build" = "版本 %@（%@）";
+"settings.about.permissions.title" = "权限说明";
+"settings.about.permissions.files.title" = "文件访问";
+"settings.about.permissions.files.body" = "Aropyt 只会读取或写入你通过系统打开/保存面板选择的 Markdown 文件和保存位置。";
+"settings.about.permissions.links.title" = "外部链接";
+"settings.about.permissions.links.body" = "按住 Command 点击链接时，会交由 macOS 使用默认浏览器打开。";
+"settings.about.permissions.network.title" = "网络";
+"settings.about.permissions.network.body" = "Aropyt 没有账号、遥测或后台同步。Markdown 中的远程图片或链接可能会由预览或浏览器加载。";
+"settings.about.permissions.local_data.title" = "本地数据";
+"settings.about.permissions.local_data.body" = "快捷键、主题和语言偏好只保存在本机的 macOS 用户默认设置中。";
 
 "error.file.decode_failed" = "无法解码文件内容（非 UTF-8/UTF-16）。";

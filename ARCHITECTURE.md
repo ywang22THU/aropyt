@@ -43,7 +43,7 @@ aropyt/
 │       │   ├── ShortcutsTabViewController.swift # 录制 / 改绑快捷键
 │       │   ├── ShortcutManager.swift            # 数据层 + UserDefaults 持久化
 │       │   ├── ThemeTabViewController.swift     # Light / Dark / Follow System
-│       │   └── HelpTabViewController.swift
+│       │   └── AboutTabViewController.swift
 │       └── Resources/
 │           ├── Info.plist             # 通过 linkerSettings 嵌入
 │           ├── marked.umd.js          # MD → HTML

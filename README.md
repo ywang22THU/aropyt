@@ -14,7 +14,7 @@ macOS 上的本地 Markdown 编辑器，使用 Swift + AppKit 开发，纯 Swift
 -   工具栏一键切换源码 / 预览模式
 -   预览模式下的所见即所得编辑（基于 contenteditable + turndown 反向生成 markdown）
 -   预览模式 Cmd+点击 链接由系统浏览器打开
--   Settings 窗口（`Cmd+,`）：自定义快捷键、主题（亮 / 暗 / 跟随系统）、Help
+-   Settings 窗口（`Cmd+,`）：自定义快捷键、主题（亮 / 暗 / 跟随系统）、About
 
 ### 待实现
 
@@ -73,11 +73,11 @@ macOS 上的本地 Markdown 编辑器，使用 Swift + AppKit 开发，纯 Swift
 | 文件 | 作用 |
 | --- | --- |
 | `SettingsWindowController.swift` | Settings 窗口的单例 NSWindowController。`Cmd+,` 通过 `AppDelegate` 触发，内容是一个 `SettingsTabViewController`。**想改设置窗口尺寸、出现行为时改这里。** |
-| `SettingsTabViewController.swift` | 左右布局的设置主界面（`NSSplitViewController`）：左侧 sidebar 列出 Shortcuts / Theme / Help 三项，右侧 container 嵌入对应子 VC。**想加新的设置 tab 时改这里**（同时加对应的 tab VC）。 |
+| `SettingsTabViewController.swift` | 左右布局的设置主界面（`NSSplitViewController`）：左侧 sidebar 列出 Shortcuts / Theme / About 三项，右侧 container 嵌入对应子 VC。**想加新的设置 tab 时改这里**（同时加对应的 tab VC）。 |
 | `ShortcutsTabViewController.swift` | Shortcuts tab。`NSTableView` 列出所有可绑定 action，点击行进入录制模式捕获新组合键，检测冲突并通过 `ShortcutManager` 持久化。**想改快捷键 UI / 录制行为时改这里。** |
 | `ShortcutManager.swift` | 快捷键的数据层：`ShortcutAction` 枚举（newDocument / open / save / close / toggleMode / bold / italic / settings）+ 默认绑定 + UserDefaults 持久化 + 变更通知。`AppDelegate` 通过它给菜单项动态设置 `keyEquivalent`。**想加新的可绑定动作时改这里。** |
 | `ThemeTabViewController.swift` | Theme tab。三选一：Follow System / Light / Dark，写入 `NSApp.appearance` 并持久化。 |
-| `HelpTabViewController.swift` | Help tab。只读 `NSTextView`，展示功能介绍文案。 |
+| `AboutTabViewController.swift` | About tab。展示 logo、版本号和权限说明。 |
 
 ### `Sources/AropytEditor/Resources/`
 

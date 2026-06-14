@@ -62,7 +62,7 @@
 "settings.window.title" = "Settings";
 "settings.tabs.shortcuts" = "Shortcuts";
 "settings.tabs.theme" = "Theme";
-"settings.tabs.help" = "Help";
+"settings.tabs.about" = "About";
 "settings.theme.title" = "Appearance";
 "settings.theme.option.system" = "Follow System";
 "settings.theme.option.light" = "Light";
@@ -93,22 +93,16 @@
 "shortcut.key.cmd" = "Cmd";
 "shortcut.key.space" = "Space";
 
-"settings.help.title" = "AropytEditor Help";
-"settings.help.overview.heading" = "Overview";
-"settings.help.overview.body" = "AropytEditor is a lightweight Markdown editor for macOS. It provides a source editing mode with syntax highlighting and a live preview mode powered by marked.js.";
-"settings.help.editing_modes.heading" = "Editing Modes";
-"settings.help.editing_modes.source" = "• Source Mode — Edit raw Markdown with syntax highlighting.";
-"settings.help.editing_modes.preview" = "• Preview Mode — See rendered HTML output with code highlighting.";
-"settings.help.keyboard_shortcuts.heading" = "Keyboard Shortcuts";
-"settings.help.shortcuts.new_document" = "New document";
-"settings.help.shortcuts.open_document" = "Open document";
-"settings.help.shortcuts.save" = "Save";
-"settings.help.shortcuts.close" = "Close window";
-"settings.help.shortcuts.toggle_mode" = "Toggle source / preview mode";
-"settings.help.shortcuts.settings" = "Open settings";
-"settings.help.links.heading" = "Links";
-"settings.help.links.body" = "In source mode, Cmd+Click on a link to open it in your browser. Links without a scheme (e.g. www.example.com) are automatically prefixed with https://.";
-"settings.help.toolbar.heading" = "Toolbar";
-"settings.help.toolbar.body" = "The toolbar provides quick access to formatting commands: Bold, Italic, Strikethrough, Headings, Code, Lists, and Blockquote.";
+"settings.about.version" = "Version %@";
+"settings.about.version_build" = "Version %@ (%@)";
+"settings.about.permissions.title" = "Permissions";
+"settings.about.permissions.files.title" = "File Access";
+"settings.about.permissions.files.body" = "Aropyt only reads or writes Markdown files and save locations you choose through the system open/save panels.";
+"settings.about.permissions.links.title" = "External Links";
+"settings.about.permissions.links.body" = "Cmd-clicking a link asks macOS to open it in your default browser.";
+"settings.about.permissions.network.title" = "Network";
+"settings.about.permissions.network.body" = "Aropyt has no account, telemetry, or background sync. Remote images or links in your Markdown may be loaded by preview or the browser.";
+"settings.about.permissions.local_data.title" = "Local Data";
+"settings.about.permissions.local_data.body" = "Shortcuts, theme, and language preferences are stored locally in macOS user defaults.";
 
 "error.file.decode_failed" = "Unable to decode file contents (not UTF-8/UTF-16).";

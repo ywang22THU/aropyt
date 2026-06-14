@@ -6,13 +6,13 @@ final class SettingsTabViewController: NSSplitViewController {
     private enum Tab: Int, CaseIterable {
         case shortcuts = 0
         case theme = 1
-        case help = 2
+        case about = 2
 
         var title: String {
             switch self {
             case .shortcuts: return L10n.tr("settings.tabs.shortcuts", "Shortcuts")
             case .theme:     return L10n.tr("settings.tabs.theme", "Theme")
-            case .help:      return L10n.tr("settings.tabs.help", "Help")
+            case .about:     return L10n.tr("settings.tabs.about", "About")
             }
         }
 
@@ -20,7 +20,7 @@ final class SettingsTabViewController: NSSplitViewController {
             switch self {
             case .shortcuts: return "keyboard"
             case .theme:     return "paintbrush"
-            case .help:      return "questionmark.circle"
+            case .about:     return "info.circle"
             }
         }
     }
@@ -82,7 +82,7 @@ final class SettingsTabViewController: NSSplitViewController {
         switch tab {
         case .shortcuts: vc = ShortcutsTabViewController()
         case .theme:     vc = ThemeTabViewController()
-        case .help:      vc = HelpTabViewController()
+        case .about:     vc = AboutTabViewController()
         }
         tabControllers[tab] = vc
         return vc
