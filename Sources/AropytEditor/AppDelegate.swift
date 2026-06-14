@@ -5,6 +5,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var configurableMenuItems: [ShortcutAction: NSMenuItem] = [:]
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        configureSystemTooltipDelay()
         installMenuBar()
         NotificationCenter.default.addObserver(
             self,
@@ -18,6 +19,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // 从终端启动时确保应用窗口获得焦点
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    private func configureSystemTooltipDelay() {
+        UserDefaults.standard.set(200, forKey: "NSInitialToolTipDelay")
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {

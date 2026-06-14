@@ -10,7 +10,7 @@ final class MainViewController: NSViewController, NSMenuItemValidation {
 
     weak var document: MarkdownDocument?
 
-    private(set) var mode: Mode = .source
+    private(set) var mode: Mode = .preview
 
     private let sourceVC = SourceViewController()
     /// 预览 VC 懒加载：webView 必须等到 view 第一次访问时 loadView() 才会创建。
@@ -30,12 +30,12 @@ final class MainViewController: NSViewController, NSMenuItemValidation {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        embedSource()
         sourceVC.onTextChanged = { [weak self] newText in
             guard let self, let doc = self.document else { return }
             // 用户在源码模式下打字 → 同步到 document
             doc.updateText(newText, actionName: "Edit")
         }
+        embedPreview()
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(documentTextChangedExternally(_:)),
@@ -53,7 +53,7 @@ final class MainViewController: NSViewController, NSMenuItemValidation {
         _ = self.view
         guard let doc = self.document else { return }
         sourceVC.setText(doc.text)
-        // 如果当前在预览模式（一般不会，新窗口默认源码），同步预览
+        // 新窗口默认预览模式，首次加载时把文档内容渲染进 WebView。
         if mode == .preview {
             previewVC?.load(markdown: doc.text)
         }

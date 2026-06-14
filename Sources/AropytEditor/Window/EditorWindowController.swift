@@ -82,13 +82,11 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         let manager = ShortcutManager.shared
         for item in items {
             if item.itemIdentifier == Self.toggleModeItemID {
-                item.setTooltipOnItemAndView("切换源码 / 预览模式 (\(manager.shortcut(for: .toggleMode).formattedLabel))")
+                item.setTooltipOnItemAndView(Self.toggleModeTooltip(manager: manager))
             } else if item.itemIdentifier == Self.settingsItemID {
-                item.setTooltipOnItemAndView("Settings (\(manager.shortcut(for: .settings).formattedLabel))")
-            } else if item.itemIdentifier == Self.formatButtons[0].id {
-                item.setTooltipOnItemAndView("粗体（仅预览模式，\(manager.shortcut(for: .bold).formattedLabel)）")
-            } else if item.itemIdentifier == Self.formatButtons[1].id {
-                item.setTooltipOnItemAndView("斜体（仅预览模式，\(manager.shortcut(for: .italic).formattedLabel)）")
+                item.setTooltipOnItemAndView(Self.settingsTooltip(manager: manager))
+            } else if let btn = Self.formatButtons.first(where: { $0.id == item.itemIdentifier }) {
+                item.setTooltipOnItemAndView(Self.tooltip(for: btn, manager: manager))
             }
         }
     }
@@ -134,6 +132,26 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
               label: "Quote", symbol: "text.quote", command: "blockquote",
               tooltip: "引用块"),
     ]
+
+    fileprivate static func toggleModeTooltip(manager: ShortcutManager = ShortcutManager.shared) -> String {
+        return "切换源码 / 预览模式 (\(manager.shortcut(for: .toggleMode).formattedLabel))"
+    }
+
+    fileprivate static func settingsTooltip(manager: ShortcutManager = ShortcutManager.shared) -> String {
+        return "Settings (\(manager.shortcut(for: .settings).formattedLabel))"
+    }
+
+    fileprivate static func tooltip(for button: FormatButton,
+                                    manager: ShortcutManager = ShortcutManager.shared) -> String {
+        switch button.command {
+        case "bold":
+            return "粗体（仅预览模式，\(manager.shortcut(for: .bold).formattedLabel)）"
+        case "italic":
+            return "斜体（仅预览模式，\(manager.shortcut(for: .italic).formattedLabel)）"
+        default:
+            return button.tooltip
+        }
+    }
 }
 
 extension EditorWindowController: NSToolbarDelegate {
@@ -167,7 +185,7 @@ extension EditorWindowController: NSToolbarDelegate {
             let item = NSToolbarItem(itemIdentifier: itemIdentifier)
             item.label = "Source / Preview"
             item.paletteLabel = "Source / Preview"
-            let tooltip = "切换源码 / 预览模式 (\(ShortcutManager.shared.shortcut(for: .toggleMode).formattedLabel))"
+            let tooltip = Self.toggleModeTooltip()
             item.setTooltipOnItemAndView(tooltip)
             item.image = NSImage(systemSymbolName: "doc.richtext", accessibilityDescription: "Toggle")
             item.view = makeToolbarButton(symbol: "doc.richtext",
@@ -181,7 +199,7 @@ extension EditorWindowController: NSToolbarDelegate {
             let item = NSToolbarItem(itemIdentifier: itemIdentifier)
             item.label = "Settings"
             item.paletteLabel = "Settings"
-            let tooltip = "Settings (\(ShortcutManager.shared.shortcut(for: .settings).formattedLabel))"
+            let tooltip = Self.settingsTooltip()
             item.setTooltipOnItemAndView(tooltip)
             item.image = NSImage(systemSymbolName: "gear", accessibilityDescription: "Settings")
             item.view = makeToolbarButton(symbol: "gear",
@@ -195,14 +213,7 @@ extension EditorWindowController: NSToolbarDelegate {
             let item = NSToolbarItem(itemIdentifier: itemIdentifier)
             item.label = btn.label
             item.paletteLabel = btn.label
-            let tooltip: String
-            if btn.command == "bold" {
-                tooltip = "粗体（仅预览模式，\(ShortcutManager.shared.shortcut(for: .bold).formattedLabel)）"
-            } else if btn.command == "italic" {
-                tooltip = "斜体（仅预览模式，\(ShortcutManager.shared.shortcut(for: .italic).formattedLabel)）"
-            } else {
-                tooltip = btn.tooltip
-            }
+            let tooltip = Self.tooltip(for: btn)
             item.setTooltipOnItemAndView(tooltip)
             item.image = NSImage(systemSymbolName: btn.symbol,
                                  accessibilityDescription: btn.label)
