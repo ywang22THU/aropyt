@@ -140,3 +140,4 @@ swift run AropytEditor
 - 不要引入 Xcode project。
 - 不要提前实现与当前任务无关的大块 P1 功能。
 - 工作区可能有用户改动；不要回滚未确认的用户改动。
+- 由 Codex 创建或修改 commit 时，commit message 必须符合 Conventional Commits，例如 `feat: add KaTeX math rendering`，不要使用无类型前缀的裸消息。
