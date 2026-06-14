@@ -13,6 +13,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             name: ShortcutManager.didChangeNotification,
             object: ShortcutManager.shared
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(languageDidChange(_:)),
+            name: L10n.didChangeNotification,
+            object: nil
+        )
         // 不要在这里手动调 newDocument —— NSDocumentController 会通过
         // applicationShouldOpenUntitledFile / applicationOpenUntitledFile 自动开一个，
         // 重复调用会出现两个空白窗口。
@@ -36,35 +42,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Menu
 
     private func installMenuBar() {
+        configurableMenuItems.removeAll()
         let mainMenu = NSMenu()
 
         // App menu
         let appMenuItem = NSMenuItem()
         mainMenu.addItem(appMenuItem)
         let appMenu = NSMenu()
-        appMenu.addItem(withTitle: "About AropytEditor",
+        appMenu.addItem(withTitle: L10n.tr("menu.about", "About AropytEditor"),
                         action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)),
                         keyEquivalent: "")
         appMenu.addItem(.separator())
-        appMenu.addItem(withTitle: "Hide AropytEditor",
+        appMenu.addItem(withTitle: L10n.tr("menu.hide_app", "Hide AropytEditor"),
                         action: #selector(NSApplication.hide(_:)),
                         keyEquivalent: "h")
-        let hideOthers = NSMenuItem(title: "Hide Others",
+        let hideOthers = NSMenuItem(title: L10n.tr("menu.hide_others", "Hide Others"),
                                     action: #selector(NSApplication.hideOtherApplications(_:)),
                                     keyEquivalent: "h")
         hideOthers.keyEquivalentModifierMask = [.command, .option]
         appMenu.addItem(hideOthers)
-        appMenu.addItem(withTitle: "Show All",
+        appMenu.addItem(withTitle: L10n.tr("menu.show_all", "Show All"),
                         action: #selector(NSApplication.unhideAllApplications(_:)),
                         keyEquivalent: "")
         appMenu.addItem(.separator())
-        let settingsItem = NSMenuItem(title: "Settings…",
+        let settingsItem = NSMenuItem(title: L10n.tr("menu.settings", "Settings..."),
                                       action: #selector(openSettings(_:)),
                                       keyEquivalent: "")
         appMenu.addItem(settingsItem)
         configurableMenuItems[.settings] = settingsItem
         appMenu.addItem(.separator())
-        appMenu.addItem(withTitle: "Quit AropytEditor",
+        appMenu.addItem(withTitle: L10n.tr("menu.quit_app", "Quit AropytEditor"),
                         action: #selector(NSApplication.terminate(_:)),
                         keyEquivalent: "q")
         appMenuItem.submenu = appMenu
@@ -72,36 +79,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // File menu
         let fileMenuItem = NSMenuItem()
         mainMenu.addItem(fileMenuItem)
-        let fileMenu = NSMenu(title: "File")
-        let newItem = NSMenuItem(title: "New",
+        let fileMenu = NSMenu(title: L10n.tr("menu.file", "File"))
+        let newItem = NSMenuItem(title: L10n.tr("menu.file.new", "New"),
                                  action: #selector(NSDocumentController.newDocument(_:)),
                                  keyEquivalent: "")
         fileMenu.addItem(newItem)
         configurableMenuItems[.newDocument] = newItem
 
-        let openItem = NSMenuItem(title: "Open…",
+        let openItem = NSMenuItem(title: L10n.tr("menu.file.open", "Open..."),
                                   action: #selector(NSDocumentController.openDocument(_:)),
                                   keyEquivalent: "")
         fileMenu.addItem(openItem)
         configurableMenuItems[.openDocument] = openItem
         fileMenu.addItem(.separator())
-        let closeItem = NSMenuItem(title: "Close",
+        let closeItem = NSMenuItem(title: L10n.tr("menu.file.close", "Close"),
                                    action: #selector(NSWindow.performClose(_:)),
                                    keyEquivalent: "")
         fileMenu.addItem(closeItem)
         configurableMenuItems[.close] = closeItem
 
-        let saveItem = NSMenuItem(title: "Save",
+        let saveItem = NSMenuItem(title: L10n.tr("menu.file.save", "Save"),
                                   action: #selector(NSDocument.save(_:)),
                                   keyEquivalent: "")
         fileMenu.addItem(saveItem)
         configurableMenuItems[.save] = saveItem
-        let saveAs = NSMenuItem(title: "Save As…",
+        let saveAs = NSMenuItem(title: L10n.tr("menu.file.save_as", "Save As..."),
                                 action: #selector(NSDocument.saveAs(_:)),
                                 keyEquivalent: "S")
         saveAs.keyEquivalentModifierMask = [.command, .shift]
         fileMenu.addItem(saveAs)
-        fileMenu.addItem(withTitle: "Revert to Saved",
+        fileMenu.addItem(withTitle: L10n.tr("menu.file.revert_to_saved", "Revert to Saved"),
                          action: #selector(NSDocument.revertToSaved(_:)),
                          keyEquivalent: "")
         fileMenuItem.submenu = fileMenu
@@ -109,33 +116,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Edit menu (standard)
         let editMenuItem = NSMenuItem()
         mainMenu.addItem(editMenuItem)
-        let editMenu = NSMenu(title: "Edit")
-        editMenu.addItem(withTitle: "Undo",
+        let editMenu = NSMenu(title: L10n.tr("menu.edit", "Edit"))
+        editMenu.addItem(withTitle: L10n.tr("menu.edit.undo", "Undo"),
                          action: Selector(("undo:")), keyEquivalent: "z")
-        let redo = NSMenuItem(title: "Redo", action: Selector(("redo:")), keyEquivalent: "Z")
+        let redo = NSMenuItem(title: L10n.tr("menu.edit.redo", "Redo"),
+                              action: Selector(("redo:")),
+                              keyEquivalent: "Z")
         redo.keyEquivalentModifierMask = [.command, .shift]
         editMenu.addItem(redo)
         editMenu.addItem(.separator())
-        editMenu.addItem(withTitle: "Cut",
+        editMenu.addItem(withTitle: L10n.tr("menu.edit.cut", "Cut"),
                          action: #selector(NSText.cut(_:)), keyEquivalent: "x")
-        editMenu.addItem(withTitle: "Copy",
+        editMenu.addItem(withTitle: L10n.tr("menu.edit.copy", "Copy"),
                          action: #selector(NSText.copy(_:)), keyEquivalent: "c")
-        editMenu.addItem(withTitle: "Paste",
+        editMenu.addItem(withTitle: L10n.tr("menu.edit.paste", "Paste"),
                          action: #selector(NSText.paste(_:)), keyEquivalent: "v")
-        editMenu.addItem(withTitle: "Select All",
+        editMenu.addItem(withTitle: L10n.tr("menu.edit.select_all", "Select All"),
                          action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
         editMenuItem.submenu = editMenu
 
         // Format menu
         let formatMenuItem = NSMenuItem()
         mainMenu.addItem(formatMenuItem)
-        let formatMenu = NSMenu(title: "Format")
-        let boldItem = NSMenuItem(title: "Bold",
+        let formatMenu = NSMenu(title: L10n.tr("menu.format", "Format"))
+        let boldItem = NSMenuItem(title: L10n.tr("menu.format.bold", "Bold"),
                                   action: #selector(MainViewController.applyBold(_:)),
                                   keyEquivalent: "")
         formatMenu.addItem(boldItem)
         configurableMenuItems[.bold] = boldItem
-        let italicItem = NSMenuItem(title: "Italic",
+        let italicItem = NSMenuItem(title: L10n.tr("menu.format.italic", "Italic"),
                                     action: #selector(MainViewController.applyItalic(_:)),
                                     keyEquivalent: "")
         formatMenu.addItem(italicItem)
@@ -145,8 +154,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // View menu
         let viewMenuItem = NSMenuItem()
         mainMenu.addItem(viewMenuItem)
-        let viewMenu = NSMenu(title: "View")
-        let toggleMode = NSMenuItem(title: "Toggle Source / Preview",
+        let viewMenu = NSMenu(title: L10n.tr("menu.view", "View"))
+        let toggleMode = NSMenuItem(title: L10n.tr("menu.view.toggle_source_preview", "Toggle Source / Preview"),
                                     action: #selector(MainViewController.toggleMode(_:)),
                                     keyEquivalent: "")
         viewMenu.addItem(toggleMode)
@@ -156,11 +165,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Window menu
         let windowMenuItem = NSMenuItem()
         mainMenu.addItem(windowMenuItem)
-        let windowMenu = NSMenu(title: "Window")
-        windowMenu.addItem(withTitle: "Minimize",
+        let windowMenu = NSMenu(title: L10n.tr("menu.window", "Window"))
+        windowMenu.addItem(withTitle: L10n.tr("menu.window.minimize", "Minimize"),
                            action: #selector(NSWindow.performMiniaturize(_:)),
                            keyEquivalent: "m")
-        windowMenu.addItem(withTitle: "Zoom",
+        windowMenu.addItem(withTitle: L10n.tr("menu.window.zoom", "Zoom"),
                            action: #selector(NSWindow.performZoom(_:)),
                            keyEquivalent: "")
         windowMenuItem.submenu = windowMenu
@@ -176,6 +185,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func shortcutsDidChange(_ notification: Notification) {
         applyConfiguredShortcuts()
+    }
+
+    @objc private func languageDidChange(_ notification: Notification) {
+        installMenuBar()
     }
 
     private func applyConfiguredShortcuts() {

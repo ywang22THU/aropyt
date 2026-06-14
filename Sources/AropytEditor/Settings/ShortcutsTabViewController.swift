@@ -20,7 +20,10 @@ final class ShortcutsTabViewController: NSViewController {
         let root = NSView()
 
         let hintLabel = NSTextField(wrappingLabelWithString:
-            "Click a shortcut and press the new key combination. Recording blocks other in-app shortcuts, and conflicting changes are not saved."
+            L10n.tr(
+                "settings.shortcuts.hint",
+                "Click a shortcut and press the new key combination. Recording blocks other in-app shortcuts, and conflicting changes are not saved."
+            )
         )
         hintLabel.translatesAutoresizingMaskIntoConstraints = false
         hintLabel.font = NSFont.systemFont(ofSize: 12)
@@ -44,13 +47,13 @@ final class ShortcutsTabViewController: NSViewController {
         tv.rowHeight = 36
 
         let actionCol = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("action"))
-        actionCol.title = "Action"
+        actionCol.title = L10n.tr("settings.shortcuts.column.action", "Action")
         actionCol.width = 200
         actionCol.isEditable = false
         tv.addTableColumn(actionCol)
 
         let shortcutCol = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("shortcut"))
-        shortcutCol.title = "Shortcut"
+        shortcutCol.title = L10n.tr("settings.shortcuts.column.shortcut", "Shortcut")
         shortcutCol.width = 260
         shortcutCol.isEditable = false
         tv.addTableColumn(shortcutCol)
@@ -175,7 +178,12 @@ final class ShortcutsTabViewController: NSViewController {
     }
 
     private func showConflictMessage(shortcut: String, conflictLabel: String) {
-        feedbackLabel.stringValue = "Shortcut \(shortcut) is already used by \(conflictLabel). Choose a different combination."
+        feedbackLabel.stringValue = L10n.tr(
+            "settings.shortcuts.conflict_message",
+            "Shortcut %@ is already used by %@. Choose a different combination.",
+            shortcut,
+            conflictLabel
+        )
         feedbackLabel.isHidden = false
     }
 
@@ -303,14 +311,14 @@ final class ShortcutRecorderView: NSView {
             layer?.backgroundColor = NSColor.controlAccentColor.withAlphaComponent(0.12).cgColor
             layer?.borderColor = NSColor.controlAccentColor.cgColor
             layer?.borderWidth = 1.5
-            label.stringValue = "Press keys..."
+            label.stringValue = L10n.tr("settings.shortcuts.recording", "Press keys...")
             label.textColor = NSColor.controlAccentColor
         } else if let conflict = conflictWith {
             // 冲突状态：橙色
             layer?.backgroundColor = NSColor.systemOrange.withAlphaComponent(0.15).cgColor
             layer?.borderColor = NSColor.systemOrange.cgColor
             layer?.borderWidth = 1.5
-            label.stringValue = "Conflict with \(conflict)"
+            label.stringValue = L10n.tr("settings.shortcuts.conflict_with", "Conflict with %@", conflict)
             label.textColor = NSColor.systemOrange
         } else {
             layer?.backgroundColor = NSColor.quaternaryLabelColor.withAlphaComponent(0.25).cgColor

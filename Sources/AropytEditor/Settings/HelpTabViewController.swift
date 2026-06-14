@@ -92,28 +92,49 @@ final class HelpTabViewController: NSViewController {
             result.append(line)
         }
 
-        title("AropytEditor Help")
+        title(L10n.tr("settings.help.title", "AropytEditor Help"))
 
-        heading("Overview")
-        body("AropytEditor is a lightweight Markdown editor for macOS. It provides a source editing mode with syntax highlighting and a live preview mode powered by marked.js.")
+        heading(L10n.tr("settings.help.overview.heading", "Overview"))
+        body(L10n.tr(
+            "settings.help.overview.body",
+            "AropytEditor is a lightweight Markdown editor for macOS. It provides a source editing mode with syntax highlighting and a live preview mode powered by marked.js."
+        ))
 
-        heading("Editing Modes")
-        body("• Source Mode — Edit raw Markdown with syntax highlighting.")
-        body("• Preview Mode — See rendered HTML output with code highlighting.")
+        heading(L10n.tr("settings.help.editing_modes.heading", "Editing Modes"))
+        body(L10n.tr(
+            "settings.help.editing_modes.source",
+            "• Source Mode — Edit raw Markdown with syntax highlighting."
+        ))
+        body(L10n.tr(
+            "settings.help.editing_modes.preview",
+            "• Preview Mode — See rendered HTML output with code highlighting."
+        ))
 
-        heading("Keyboard Shortcuts")
-        shortcut(shortcuts.shortcut(for: .newDocument).formattedLabel, "New document")
-        shortcut(shortcuts.shortcut(for: .openDocument).formattedLabel, "Open document")
-        shortcut(shortcuts.shortcut(for: .save).formattedLabel, "Save")
-        shortcut(shortcuts.shortcut(for: .close).formattedLabel, "Close window")
-        shortcut(shortcuts.shortcut(for: .toggleMode).formattedLabel, "Toggle source / preview mode")
-        shortcut(shortcuts.shortcut(for: .settings).formattedLabel, "Open settings")
+        heading(L10n.tr("settings.help.keyboard_shortcuts.heading", "Keyboard Shortcuts"))
+        shortcut(shortcuts.shortcut(for: .newDocument).formattedLabel,
+                 L10n.tr("settings.help.shortcuts.new_document", "New document"))
+        shortcut(shortcuts.shortcut(for: .openDocument).formattedLabel,
+                 L10n.tr("settings.help.shortcuts.open_document", "Open document"))
+        shortcut(shortcuts.shortcut(for: .save).formattedLabel,
+                 L10n.tr("settings.help.shortcuts.save", "Save"))
+        shortcut(shortcuts.shortcut(for: .close).formattedLabel,
+                 L10n.tr("settings.help.shortcuts.close", "Close window"))
+        shortcut(shortcuts.shortcut(for: .toggleMode).formattedLabel,
+                 L10n.tr("settings.help.shortcuts.toggle_mode", "Toggle source / preview mode"))
+        shortcut(shortcuts.shortcut(for: .settings).formattedLabel,
+                 L10n.tr("settings.help.shortcuts.settings", "Open settings"))
 
-        heading("Links")
-        body("In source mode, Cmd+Click on a link to open it in your browser. Links without a scheme (e.g. www.example.com) are automatically prefixed with https://.")
+        heading(L10n.tr("settings.help.links.heading", "Links"))
+        body(L10n.tr(
+            "settings.help.links.body",
+            "In source mode, Cmd+Click on a link to open it in your browser. Links without a scheme (e.g. www.example.com) are automatically prefixed with https://."
+        ))
 
-        heading("Toolbar")
-        body("The toolbar provides quick access to formatting commands: Bold, Italic, Strikethrough, Headings, Code, Lists, and Blockquote.")
+        heading(L10n.tr("settings.help.toolbar.heading", "Toolbar"))
+        body(L10n.tr(
+            "settings.help.toolbar.body",
+            "The toolbar provides quick access to formatting commands: Bold, Italic, Strikethrough, Headings, Code, Lists, and Blockquote."
+        ))
 
         return result
     }

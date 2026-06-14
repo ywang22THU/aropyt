@@ -23,14 +23,14 @@ enum ShortcutAction: String, CaseIterable {
 
     var label: String {
         switch self {
-        case .newDocument: return "New Document"
-        case .openDocument: return "Open Document"
-        case .save: return "Save"
-        case .close: return "Close Window"
-        case .toggleMode: return "Toggle Source/Preview"
-        case .bold: return "Bold"
-        case .italic: return "Italic"
-        case .settings: return "Settings"
+        case .newDocument: return L10n.tr("shortcut.action.new_document", "New Document")
+        case .openDocument: return L10n.tr("shortcut.action.open_document", "Open Document")
+        case .save: return L10n.tr("shortcut.action.save", "Save")
+        case .close: return L10n.tr("shortcut.action.close", "Close Window")
+        case .toggleMode: return L10n.tr("shortcut.action.toggle_mode", "Toggle Source/Preview")
+        case .bold: return L10n.tr("shortcut.action.bold", "Bold")
+        case .italic: return L10n.tr("shortcut.action.italic", "Italic")
+        case .settings: return L10n.tr("shortcut.action.settings", "Settings")
         }
     }
 
@@ -77,11 +77,11 @@ struct KeyboardShortcut: Codable, Hashable {
 enum ShortcutFormatter {
     static func format(key: String, modifiers: NSEvent.ModifierFlags) -> String {
         var parts: [String] = []
-        if modifiers.contains(.control) { parts.append("Ctrl") }
-        if modifiers.contains(.option) { parts.append("Option") }
-        if modifiers.contains(.shift) { parts.append("Shift") }
-        if modifiers.contains(.command) { parts.append("Cmd") }
-        parts.append(key == " " ? "Space" : key.uppercased())
+        if modifiers.contains(.control) { parts.append(L10n.tr("shortcut.key.ctrl", "Ctrl")) }
+        if modifiers.contains(.option) { parts.append(L10n.tr("shortcut.key.option", "Option")) }
+        if modifiers.contains(.shift) { parts.append(L10n.tr("shortcut.key.shift", "Shift")) }
+        if modifiers.contains(.command) { parts.append(L10n.tr("shortcut.key.cmd", "Cmd")) }
+        parts.append(key == " " ? L10n.tr("shortcut.key.space", "Space") : key.uppercased())
         return parts.joined(separator: " + ")
     }
 }
@@ -152,19 +152,21 @@ final class ShortcutManager {
         return shortcuts
     }
 
-    private static let reservedShortcutLabels: [KeyboardShortcut: String] = [
-        KeyboardShortcut(keyEquivalent: "h", modifiers: .command): "Hide AropytEditor",
-        KeyboardShortcut(keyEquivalent: "h", modifiers: [.command, .option]): "Hide Others",
-        KeyboardShortcut(keyEquivalent: "q", modifiers: .command): "Quit AropytEditor",
-        KeyboardShortcut(keyEquivalent: "s", modifiers: [.command, .shift]): "Save As…",
-        KeyboardShortcut(keyEquivalent: "z", modifiers: .command): "Undo",
-        KeyboardShortcut(keyEquivalent: "z", modifiers: [.command, .shift]): "Redo",
-        KeyboardShortcut(keyEquivalent: "x", modifiers: .command): "Cut",
-        KeyboardShortcut(keyEquivalent: "c", modifiers: .command): "Copy",
-        KeyboardShortcut(keyEquivalent: "v", modifiers: .command): "Paste",
-        KeyboardShortcut(keyEquivalent: "a", modifiers: .command): "Select All",
-        KeyboardShortcut(keyEquivalent: "m", modifiers: .command): "Minimize",
-    ]
+    private static var reservedShortcutLabels: [KeyboardShortcut: String] {
+        [
+            KeyboardShortcut(keyEquivalent: "h", modifiers: .command): L10n.tr("menu.hide_app", "Hide AropytEditor"),
+            KeyboardShortcut(keyEquivalent: "h", modifiers: [.command, .option]): L10n.tr("menu.hide_others", "Hide Others"),
+            KeyboardShortcut(keyEquivalent: "q", modifiers: .command): L10n.tr("menu.quit_app", "Quit AropytEditor"),
+            KeyboardShortcut(keyEquivalent: "s", modifiers: [.command, .shift]): L10n.tr("menu.file.save_as", "Save As..."),
+            KeyboardShortcut(keyEquivalent: "z", modifiers: .command): L10n.tr("menu.edit.undo", "Undo"),
+            KeyboardShortcut(keyEquivalent: "z", modifiers: [.command, .shift]): L10n.tr("menu.edit.redo", "Redo"),
+            KeyboardShortcut(keyEquivalent: "x", modifiers: .command): L10n.tr("menu.edit.cut", "Cut"),
+            KeyboardShortcut(keyEquivalent: "c", modifiers: .command): L10n.tr("menu.edit.copy", "Copy"),
+            KeyboardShortcut(keyEquivalent: "v", modifiers: .command): L10n.tr("menu.edit.paste", "Paste"),
+            KeyboardShortcut(keyEquivalent: "a", modifiers: .command): L10n.tr("menu.edit.select_all", "Select All"),
+            KeyboardShortcut(keyEquivalent: "m", modifiers: .command): L10n.tr("menu.window.minimize", "Minimize"),
+        ]
+    }
 }
 
 private extension NSEvent.ModifierFlags {

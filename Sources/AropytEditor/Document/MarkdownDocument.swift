@@ -49,7 +49,12 @@ final class MarkdownDocument: NSDocument {
         } else {
             throw NSError(domain: NSCocoaErrorDomain,
                           code: NSFileReadCorruptFileError,
-                          userInfo: [NSLocalizedDescriptionKey: "无法解码文件内容（非 UTF-8/UTF-16）"])
+                          userInfo: [
+                              NSLocalizedDescriptionKey: L10n.tr(
+                                  "error.file.decode_failed",
+                                  "Unable to decode file contents (not UTF-8/UTF-16)."
+                              )
+                          ])
         }
     }
 

@@ -172,7 +172,9 @@ final class MainViewController: NSViewController, NSMenuItemValidation {
 
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
         if menuItem.action == #selector(toggleMode(_:)) {
-            menuItem.title = (mode == .source) ? "Switch to Preview" : "Switch to Source"
+            menuItem.title = (mode == .source)
+                ? L10n.tr("menu.view.switch_to_preview", "Switch to Preview")
+                : L10n.tr("menu.view.switch_to_source", "Switch to Source")
             return true
         }
         if menuItem.action == #selector(applyBold(_:)) || menuItem.action == #selector(applyItalic(_:)) {

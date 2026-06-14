@@ -8,7 +8,7 @@ import AppKit
 final class EditorWindowController: NSWindowController, NSWindowDelegate {
 
     private var mainVC: MainViewController?
-    private var isObservingShortcutChanges = false
+    private var isObservingToolbarLocalizationChanges = false
 
     convenience init() {
         let style: NSWindow.StyleMask = [.titled, .closable, .miniaturizable, .resizable]
@@ -41,8 +41,8 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         // reloadFromDocument 早于 SourceViewController.textView 创建。
         _ = vc.view
 
-        startObservingShortcutChangesIfNeeded()
-        updateToolbarTooltips()
+        startObservingToolbarLocalizationChangesIfNeeded()
+        updateToolbarLocalization()
 
         // 触发首次加载
         vc.reloadFromDocument()
@@ -62,31 +62,70 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         return toolbar
     }
 
-    private func startObservingShortcutChangesIfNeeded() {
-        guard !isObservingShortcutChanges else { return }
+    private func startObservingToolbarLocalizationChangesIfNeeded() {
+        guard !isObservingToolbarLocalizationChanges else { return }
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(shortcutsDidChange(_:)),
             name: ShortcutManager.didChangeNotification,
             object: ShortcutManager.shared
         )
-        isObservingShortcutChanges = true
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(languageDidChange(_:)),
+            name: L10n.didChangeNotification,
+            object: nil
+        )
+        isObservingToolbarLocalizationChanges = true
     }
 
     @objc private func shortcutsDidChange(_ notification: Notification) {
-        updateToolbarTooltips()
+        updateToolbarLocalization()
     }
 
-    private func updateToolbarTooltips() {
+    @objc private func languageDidChange(_ notification: Notification) {
+        updateToolbarLocalization()
+    }
+
+    private func updateToolbarLocalization() {
         guard let items = window?.toolbar?.items else { return }
         let manager = ShortcutManager.shared
         for item in items {
             if item.itemIdentifier == Self.toggleModeItemID {
+                let label = L10n.tr("toolbar.toggle_source_preview.label", "Source / Preview")
+                let accessibility = L10n.tr(
+                    "toolbar.toggle_source_preview.accessibility",
+                    "Toggle source / preview"
+                )
+                item.label = label
+                item.paletteLabel = label
                 item.setTooltipOnItemAndView(Self.toggleModeTooltip(manager: manager))
+                item.image = NSImage(systemSymbolName: "doc.richtext", accessibilityDescription: accessibility)
+                if let button = item.view as? NSButton {
+                    button.image = item.image
+                    button.setAccessibilityLabel(accessibility)
+                }
             } else if item.itemIdentifier == Self.settingsItemID {
+                let label = L10n.tr("toolbar.settings.label", "Settings")
+                item.label = label
+                item.paletteLabel = label
                 item.setTooltipOnItemAndView(Self.settingsTooltip(manager: manager))
+                item.image = NSImage(systemSymbolName: "gear", accessibilityDescription: label)
+                if let button = item.view as? NSButton {
+                    button.image = item.image
+                    button.setAccessibilityLabel(label)
+                }
             } else if let btn = Self.formatButtons.first(where: { $0.id == item.itemIdentifier }) {
+                let label = Self.label(for: btn)
+                item.label = label
+                item.paletteLabel = label
                 item.setTooltipOnItemAndView(Self.tooltip(for: btn, manager: manager))
+                item.image = NSImage(systemSymbolName: btn.symbol, accessibilityDescription: label)
+                    ?? NSImage(systemSymbolName: "questionmark", accessibilityDescription: nil)
+                if let button = item.view as? NSButton {
+                    button.image = item.image
+                    button.setAccessibilityLabel(label)
+                }
             }
         }
     }
@@ -94,63 +133,98 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
     /// 描述一个格式化按钮的元数据
     fileprivate struct FormatButton {
         let id: NSToolbarItem.Identifier
-        let label: String
+        let labelKey: String
+        let labelFallback: String
         let symbol: String
         let command: String
-        let tooltip: String
+        let tooltipKey: String
+        let tooltipFallback: String
     }
 
     fileprivate static let formatButtons: [FormatButton] = [
         .init(id: .init("AropytEditor.Format.Bold"),
-              label: "Bold", symbol: "bold", command: "bold",
-              tooltip: "粗体（仅预览模式）"),
+              labelKey: "toolbar.format.bold.label", labelFallback: "Bold",
+              symbol: "bold", command: "bold",
+              tooltipKey: "toolbar.format.bold.tooltip", tooltipFallback: "Bold (Preview mode only)"),
         .init(id: .init("AropytEditor.Format.Italic"),
-              label: "Italic", symbol: "italic", command: "italic",
-              tooltip: "斜体（仅预览模式）"),
+              labelKey: "toolbar.format.italic.label", labelFallback: "Italic",
+              symbol: "italic", command: "italic",
+              tooltipKey: "toolbar.format.italic.tooltip", tooltipFallback: "Italic (Preview mode only)"),
         .init(id: .init("AropytEditor.Format.Strike"),
-              label: "Strikethrough", symbol: "strikethrough", command: "strikethrough",
-              tooltip: "删除线（仅预览模式）"),
+              labelKey: "toolbar.format.strikethrough.label", labelFallback: "Strikethrough",
+              symbol: "strikethrough", command: "strikethrough",
+              tooltipKey: "toolbar.format.strikethrough.tooltip",
+              tooltipFallback: "Strikethrough (Preview mode only)"),
         .init(id: .init("AropytEditor.Format.H1"),
-              label: "H1", symbol: "1.square", command: "h1",
-              tooltip: "一级标题"),
+              labelKey: "toolbar.format.h1.label", labelFallback: "H1",
+              symbol: "1.square", command: "h1",
+              tooltipKey: "toolbar.format.h1.tooltip", tooltipFallback: "Heading 1 (Preview mode only)"),
         .init(id: .init("AropytEditor.Format.H2"),
-              label: "H2", symbol: "2.square", command: "h2",
-              tooltip: "二级标题"),
+              labelKey: "toolbar.format.h2.label", labelFallback: "H2",
+              symbol: "2.square", command: "h2",
+              tooltipKey: "toolbar.format.h2.tooltip", tooltipFallback: "Heading 2 (Preview mode only)"),
         .init(id: .init("AropytEditor.Format.Code"),
-              label: "Code", symbol: "chevron.left.forwardslash.chevron.right", command: "code",
-              tooltip: "行内代码"),
+              labelKey: "toolbar.format.code.label", labelFallback: "Code",
+              symbol: "chevron.left.forwardslash.chevron.right", command: "code",
+              tooltipKey: "toolbar.format.code.tooltip", tooltipFallback: "Inline code (Preview mode only)"),
         .init(id: .init("AropytEditor.Format.CodeBlock"),
-              label: "Code Block", symbol: "curlybraces", command: "codeblock",
-              tooltip: "代码块"),
+              labelKey: "toolbar.format.code_block.label", labelFallback: "Code Block",
+              symbol: "curlybraces", command: "codeblock",
+              tooltipKey: "toolbar.format.code_block.tooltip", tooltipFallback: "Code block (Preview mode only)"),
         .init(id: .init("AropytEditor.Format.UL"),
-              label: "Bulleted List", symbol: "list.bullet", command: "ul",
-              tooltip: "无序列表"),
+              labelKey: "toolbar.format.bulleted_list.label", labelFallback: "Bulleted List",
+              symbol: "list.bullet", command: "ul",
+              tooltipKey: "toolbar.format.bulleted_list.tooltip",
+              tooltipFallback: "Bulleted list (Preview mode only)"),
         .init(id: .init("AropytEditor.Format.OL"),
-              label: "Numbered List", symbol: "list.number", command: "ol",
-              tooltip: "有序列表"),
+              labelKey: "toolbar.format.numbered_list.label", labelFallback: "Numbered List",
+              symbol: "list.number", command: "ol",
+              tooltipKey: "toolbar.format.numbered_list.tooltip",
+              tooltipFallback: "Numbered list (Preview mode only)"),
         .init(id: .init("AropytEditor.Format.Quote"),
-              label: "Quote", symbol: "text.quote", command: "blockquote",
-              tooltip: "引用块"),
+              labelKey: "toolbar.format.quote.label", labelFallback: "Quote",
+              symbol: "text.quote", command: "blockquote",
+              tooltipKey: "toolbar.format.quote.tooltip", tooltipFallback: "Block quote (Preview mode only)"),
     ]
 
     fileprivate static func toggleModeTooltip(manager: ShortcutManager = ShortcutManager.shared) -> String {
-        return "切换源码 / 预览模式 (\(manager.shortcut(for: .toggleMode).formattedLabel))"
+        return L10n.tr(
+            "toolbar.toggle_source_preview.tooltip",
+            "Toggle source / preview mode (%@)",
+            manager.shortcut(for: .toggleMode).formattedLabel
+        )
     }
 
     fileprivate static func settingsTooltip(manager: ShortcutManager = ShortcutManager.shared) -> String {
-        return "Settings (\(manager.shortcut(for: .settings).formattedLabel))"
+        return L10n.tr(
+            "toolbar.settings.tooltip",
+            "Settings (%@)",
+            manager.shortcut(for: .settings).formattedLabel
+        )
     }
 
     fileprivate static func tooltip(for button: FormatButton,
                                     manager: ShortcutManager = ShortcutManager.shared) -> String {
         switch button.command {
         case "bold":
-            return "粗体（仅预览模式，\(manager.shortcut(for: .bold).formattedLabel)）"
+            return L10n.tr(
+                "toolbar.format.bold.tooltip_with_shortcut",
+                "Bold (Preview mode only, %@)",
+                manager.shortcut(for: .bold).formattedLabel
+            )
         case "italic":
-            return "斜体（仅预览模式，\(manager.shortcut(for: .italic).formattedLabel)）"
+            return L10n.tr(
+                "toolbar.format.italic.tooltip_with_shortcut",
+                "Italic (Preview mode only, %@)",
+                manager.shortcut(for: .italic).formattedLabel
+            )
         default:
-            return button.tooltip
+            return L10n.tr(button.tooltipKey, button.tooltipFallback)
         }
+    }
+
+    fileprivate static func label(for button: FormatButton) -> String {
+        return L10n.tr(button.labelKey, button.labelFallback)
     }
 }
 
@@ -183,13 +257,18 @@ extension EditorWindowController: NSToolbarDelegate {
                  willBeInsertedIntoToolbar flag: Bool) -> NSToolbarItem? {
         if itemIdentifier == Self.toggleModeItemID {
             let item = NSToolbarItem(itemIdentifier: itemIdentifier)
-            item.label = "Source / Preview"
-            item.paletteLabel = "Source / Preview"
+            let label = L10n.tr("toolbar.toggle_source_preview.label", "Source / Preview")
+            let accessibility = L10n.tr(
+                "toolbar.toggle_source_preview.accessibility",
+                "Toggle source / preview"
+            )
+            item.label = label
+            item.paletteLabel = label
             let tooltip = Self.toggleModeTooltip()
             item.setTooltipOnItemAndView(tooltip)
-            item.image = NSImage(systemSymbolName: "doc.richtext", accessibilityDescription: "Toggle")
+            item.image = NSImage(systemSymbolName: "doc.richtext", accessibilityDescription: accessibility)
             item.view = makeToolbarButton(symbol: "doc.richtext",
-                                          accessibilityDescription: "Toggle",
+                                          accessibilityDescription: accessibility,
                                           tooltip: tooltip,
                                           tag: 0,
                                           action: #selector(toggleModeFromToolbar(_:)))
@@ -197,13 +276,14 @@ extension EditorWindowController: NSToolbarDelegate {
         }
         if itemIdentifier == Self.settingsItemID {
             let item = NSToolbarItem(itemIdentifier: itemIdentifier)
-            item.label = "Settings"
-            item.paletteLabel = "Settings"
+            let label = L10n.tr("toolbar.settings.label", "Settings")
+            item.label = label
+            item.paletteLabel = label
             let tooltip = Self.settingsTooltip()
             item.setTooltipOnItemAndView(tooltip)
-            item.image = NSImage(systemSymbolName: "gear", accessibilityDescription: "Settings")
+            item.image = NSImage(systemSymbolName: "gear", accessibilityDescription: label)
             item.view = makeToolbarButton(symbol: "gear",
-                                          accessibilityDescription: "Settings",
+                                          accessibilityDescription: label,
                                           tooltip: tooltip,
                                           tag: 0,
                                           action: #selector(openSettingsFromToolbar(_:)))
@@ -211,17 +291,18 @@ extension EditorWindowController: NSToolbarDelegate {
         }
         if let btn = Self.formatButtons.first(where: { $0.id == itemIdentifier }) {
             let item = NSToolbarItem(itemIdentifier: itemIdentifier)
-            item.label = btn.label
-            item.paletteLabel = btn.label
+            let label = Self.label(for: btn)
+            item.label = label
+            item.paletteLabel = label
             let tooltip = Self.tooltip(for: btn)
             item.setTooltipOnItemAndView(tooltip)
             item.image = NSImage(systemSymbolName: btn.symbol,
-                                 accessibilityDescription: btn.label)
+                                 accessibilityDescription: label)
                 ?? NSImage(systemSymbolName: "questionmark", accessibilityDescription: nil)
             // 用 tag 编码命令在按钮列表里的索引
             item.tag = Self.formatButtons.firstIndex(where: { $0.id == itemIdentifier }) ?? 0
             item.view = makeToolbarButton(symbol: btn.symbol,
-                                          accessibilityDescription: btn.label,
+                                          accessibilityDescription: label,
                                           tooltip: tooltip,
                                           tag: item.tag,
                                           action: #selector(formatItemAction(_:)))

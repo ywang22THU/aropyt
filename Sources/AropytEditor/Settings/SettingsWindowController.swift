@@ -12,13 +12,23 @@ final class SettingsWindowController: NSWindowController {
             backing: .buffered,
             defer: false
         )
-        w.title = "Settings"
+        w.title = L10n.tr("settings.window.title", "Settings")
         w.center()
         w.minSize = NSSize(width: 600, height: 400)
         w.isReleasedWhenClosed = false
         super.init(window: w)
         let vc = SettingsTabViewController()
         w.contentViewController = vc
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(languageDidChange(_:)),
+            name: L10n.didChangeNotification,
+            object: nil
+        )
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
     }
 
     required init?(coder: NSCoder) { fatalError() }
@@ -36,5 +46,9 @@ final class SettingsWindowController: NSWindowController {
         showWindow(nil)
         window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    @objc private func languageDidChange(_ notification: Notification) {
+        window?.title = L10n.tr("settings.window.title", "Settings")
     }
 }

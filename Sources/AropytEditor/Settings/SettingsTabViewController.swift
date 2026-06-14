@@ -10,9 +10,9 @@ final class SettingsTabViewController: NSSplitViewController {
 
         var title: String {
             switch self {
-            case .shortcuts: return "Shortcuts"
-            case .theme:     return "Theme"
-            case .help:      return "Help"
+            case .shortcuts: return L10n.tr("settings.tabs.shortcuts", "Shortcuts")
+            case .theme:     return L10n.tr("settings.tabs.theme", "Theme")
+            case .help:      return L10n.tr("settings.tabs.help", "Help")
             }
         }
 
@@ -58,6 +58,17 @@ final class SettingsTabViewController: NSSplitViewController {
 
         switchTo(.shortcuts)
         sidebar.selectRow(0)
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(languageDidChange(_:)),
+            name: L10n.didChangeNotification,
+            object: nil
+        )
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
     }
 
     private func switchTo(_ tab: Tab) {
@@ -75,6 +86,15 @@ final class SettingsTabViewController: NSSplitViewController {
         }
         tabControllers[tab] = vc
         return vc
+    }
+
+    @objc private func languageDidChange(_ notification: Notification) {
+        let selectedTab = currentTab
+        sidebarVC.tabs = Tab.allCases.map { (title: $0.title, symbol: $0.symbol) }
+        sidebarVC.reloadData()
+        tabControllers.removeAll()
+        switchTo(selectedTab)
+        sidebarVC.selectRow(selectedTab.rawValue)
     }
 }
 
@@ -112,6 +132,10 @@ final class SidebarListViewController: NSViewController, NSTableViewDataSource, 
 
     func selectRow(_ row: Int) {
         tableView.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
+    }
+
+    func reloadData() {
+        tableView.reloadData()
     }
 
     func numberOfRows(in tableView: NSTableView) -> Int { tabs.count }
