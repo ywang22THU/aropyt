@@ -3,6 +3,7 @@ import AppKit
 final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var configurableMenuItems: [ShortcutAction: NSMenuItem] = [:]
+    private var isPreparingApplicationTermination = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         configureSystemTooltipDelay()
@@ -37,6 +38,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldOpenUntitledFile(_ sender: NSApplication) -> Bool {
         return true
+    }
+
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard !isPreparingApplicationTermination else { return .terminateLater }
+        let coordinators = NSDocumentController.shared.documents
+            .flatMap(\.windowControllers)
+            .compactMap { $0 as? EditorWindowController }
+            .filter(\.hasUnflushedPreviewEdits)
+        guard !coordinators.isEmpty else { return .terminateNow }
+
+        isPreparingApplicationTermination = true
+        var remaining = coordinators.count
+        var allSucceeded = true
+        for coordinator in coordinators {
+            coordinator.prepareForApplicationTermination { [weak self] succeeded in
+                allSucceeded = allSucceeded && succeeded
+                remaining -= 1
+                guard remaining == 0 else { return }
+                self?.isPreparingApplicationTermination = false
+                sender.reply(toApplicationShouldTerminate: allSucceeded)
+            }
+        }
+        return .terminateLater
     }
 
     // MARK: - Menu
@@ -99,12 +123,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         configurableMenuItems[.close] = closeItem
 
         let saveItem = NSMenuItem(title: L10n.tr("menu.file.save", "Save"),
-                                  action: #selector(NSDocument.save(_:)),
+                                  action: #selector(MainViewController.saveDocument(_:)),
                                   keyEquivalent: "")
         fileMenu.addItem(saveItem)
         configurableMenuItems[.save] = saveItem
         let saveAs = NSMenuItem(title: L10n.tr("menu.file.save_as", "Save As..."),
-                                action: #selector(NSDocument.saveAs(_:)),
+                                action: #selector(MainViewController.saveDocumentAs(_:)),
                                 keyEquivalent: "S")
         saveAs.keyEquivalentModifierMask = [.command, .shift]
         fileMenu.addItem(saveAs)

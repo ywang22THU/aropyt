@@ -1,4 +1,5 @@
 import AppKit
+import MarkdownCore
 
 /// Markdown 文档模型，单一数据源。
 /// 注意：这里不能用 `print(...)`，会和 NSDocument 自带的 `print()` 实例方法冲突。
@@ -22,7 +23,13 @@ final class MarkdownDocument: NSDocument {
         self.hasUndoManager = true
     }
 
-    override class var autosavesInPlace: Bool { true }
+    /// Saving is coordinated by AutoSaveManager so dirty preview DOM is flushed
+    /// before any bytes are written.
+    override class var autosavesInPlace: Bool { false }
+
+    var isLongDocument: Bool {
+        LongDocumentPolicy.isLongDocument(text)
+    }
 
     override class var readableTypes: [String] {
         return ["net.daringfireball.markdown", "public.plain-text"]
@@ -78,6 +85,19 @@ final class MarkdownDocument: NSDocument {
         }
         self.text = newText
         self.updateChangeCount(.changeDone)
+    }
+
+    /// Saves an already-flushed document without opening a save panel. Untitled
+    /// documents remain pending until the user chooses a location explicitly.
+    func saveThroughCoordinator(completion: @escaping (Bool) -> Void) {
+        guard let fileURL else {
+            completion(false)
+            return
+        }
+        let type = fileType ?? Self.writableTypes[0]
+        save(to: fileURL, ofType: type, for: .saveOperation) { error in
+            completion(error == nil)
+        }
     }
 }
 

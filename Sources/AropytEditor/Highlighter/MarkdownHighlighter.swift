@@ -64,11 +64,23 @@ final class MarkdownHighlighter {
     func apply(to storage: NSTextStorage) {
         let text = storage.string
         let full = NSRange(location: 0, length: (text as NSString).length)
-        // 先清掉之前的 link attribute，避免删除 `]( )` 后残留
-        storage.removeAttribute(.link, range: full)
+        apply(to: storage, range: full)
+    }
+
+    /// Applies syntax attributes only inside complete affected paragraphs.
+    /// Callers reset base attributes in the same range before invoking this method.
+    func apply(to storage: NSTextStorage, range requestedRange: NSRange) {
+        let text = storage.string
+        let nsText = text as NSString
+        let range = Self.expandedHighlightRange(for: requestedRange, in: nsText)
+        guard range.length > 0 else { return }
+
+        // Clear old links in the processed range so deleting Markdown delimiters
+        // cannot leave a stale clickable attribute behind.
+        storage.removeAttribute(.link, range: range)
 
         for rule in rules {
-            rule.regex.enumerateMatches(in: text, options: [], range: full) { match, _, _ in
+            rule.regex.enumerateMatches(in: text, options: [], range: range) { match, _, _ in
                 guard let r = match?.range else { return }
                 storage.addAttribute(.foregroundColor, value: rule.color, range: r)
                 if rule.bold || rule.italic {
@@ -84,7 +96,23 @@ final class MarkdownHighlighter {
 
         // 给 [text](url) 形式的链接加 .link 属性，让 NSTextView 原生支持 cmd+click。
         // 注意：这一步独立于上面的着色规则。
-        applyLinkAttributes(to: storage, in: text, range: full)
+        applyLinkAttributes(to: storage, in: text, range: range)
+    }
+
+    /// Expands edits to paragraph boundaries. This covers line joins caused by
+    /// deleting a newline and whole multi-line paste regions without scanning
+    /// the rest of the document.
+    static func expandedHighlightRange(for requestedRange: NSRange, in text: NSString) -> NSRange {
+        let length = text.length
+        guard length > 0 else { return NSRange(location: 0, length: 0) }
+
+        let location = min(max(0, requestedRange.location), length)
+        let available = max(0, length - location)
+        let requestedLength = min(max(0, requestedRange.length), available)
+        if location == length {
+            return text.paragraphRange(for: NSRange(location: length - 1, length: 0))
+        }
+        return text.paragraphRange(for: NSRange(location: location, length: requestedLength))
     }
 
     private func applyLinkAttributes(to storage: NSTextStorage, in text: String, range: NSRange) {

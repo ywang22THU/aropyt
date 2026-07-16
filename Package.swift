@@ -34,6 +34,11 @@ let package = Package(
                     "-Xlinker", "Sources/AropytEditor/Resources/Info.plist"
                 ])
             ]
-        )
+        ),
+        .testTarget(
+            name: "AropytEditorTests",
+            dependencies: ["MarkdownCore", "AropytEditor"],
+            path: "Tests/AropytEditorTests"
+        ),
     ]
 )

@@ -12,22 +12,55 @@ import MarkdownCore
 /// 当外部（document）回填的内容和它一致时跳过 reload，避免打乱光标。
 final class PreviewViewController: NSViewController, WKNavigationDelegate, WKScriptMessageHandler {
 
+    enum RenderState: Equatable {
+        case idle
+        case rendering(completed: Int, total: Int)
+        case ready
+    }
+
+    enum FlushError: LocalizedError {
+        case javaScript(String)
+        case conversion(String)
+
+        var errorDescription: String? {
+            switch self {
+            case .javaScript(let message), .conversion(let message):
+                return message
+            }
+        }
+    }
+
     private var webView: WKWebView?
     private var pendingMarkdown: String?
     private(set) var lastSentMarkdown: String?
     private var isReady = false
+    private(set) var renderState: RenderState = .idle
+    private(set) var isDirty = false
+    private(set) var isFlushing = false
+    private var renderGeneration = 0
+    private var hasCommittedDocument = false
+    private(set) var navigationDidFinish = false
+    private(set) var lastNavigationErrorDescription: String?
+    private var activeFlushRequestID: String?
+    private var flushCompletions: [(Result<String?, Error>) -> Void] = []
 
     /// 用户在预览中编辑触发的 markdown 更新回调
     var onMarkdownEdited: ((String) -> Void)?
+    var onDirtyStateChanged: ((Bool) -> Void)?
 
     override func loadView() {
         let config = WKWebViewConfiguration()
         config.preferences.javaScriptCanOpenWindowsAutomatically = false
         let userContent = WKUserContentController()
-        userContent.add(self, name: "markdownChanged")
-        userContent.add(self, name: "openLink")
-        userContent.add(self, name: "previewReady")
+        for name in ["markdownChanged", "openLink", "previewReady", "previewDirty",
+                     "previewFlushResult", "previewState"] {
+            userContent.add(WeakScriptMessageHandler(delegate: self), name: name)
+        }
         config.userContentController = userContent
+        config.setURLSchemeHandler(
+            PreviewResourceSchemeHandler(resourceDirectory: Self.resourceBaseURL()),
+            forURLScheme: PreviewResourceSchemeHandler.scheme
+        )
 
         let wv = WKWebView(frame: NSRect(x: 0, y: 0, width: 1100, height: 720),
                            configuration: config)
@@ -37,9 +70,26 @@ final class PreviewViewController: NSViewController, WKNavigationDelegate, WKScr
         self.webView = wv
         self.view = wv
 
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(autoSavePreferencesDidChange(_:)),
+            name: AutoSavePreferences.didChangeNotification,
+            object: AutoSavePreferences.shared
+        )
+
         if let pending = pendingMarkdown {
             pendingMarkdown = nil
             renderInternal(markdown: pending)
+        }
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+        if let webView {
+            for name in ["markdownChanged", "openLink", "previewReady", "previewDirty",
+                         "previewFlushResult", "previewState"] {
+                webView.configuration.userContentController.removeScriptMessageHandler(forName: name)
+            }
         }
     }
 
@@ -61,11 +111,43 @@ final class PreviewViewController: NSViewController, WKNavigationDelegate, WKScr
 
     private func renderInternal(markdown: String) {
         guard let wv = self.webView else { return }
+        renderGeneration &+= 1
+        let generation = renderGeneration
         isReady = false
+        renderState = .idle
+        setDirty(false)
         lastSentMarkdown = markdown
-        let html = MarkdownRenderer.htmlDocument(for: markdown)
-        let baseURL = Self.resourceBaseURL()
-        wv.loadHTMLString(html, baseURL: baseURL)
+        let isLongDocument = LongDocumentPolicy.isLongDocument(markdown)
+        let configuration = PreviewRenderConfiguration(
+            isLongDocument: isLongDocument,
+            generation: generation,
+            progressText: L10n.tr("preview.render.progress", "Rendering preview… %d of %d blocks"),
+            completeText: L10n.tr("preview.render.complete", "Preview complete"),
+            convertingText: L10n.tr("preview.render.converting", "Converting preview edits…"),
+            autoSaveWarningText: L10n.tr(
+                "preview.autosave.on_change_warning",
+                "On Change is active. Preview edits to this long document require repeated full-document conversion."
+            ),
+            showsAutoSaveWarning: AutoSavePreferences.shared.mode == .onChange
+        )
+        let html = MarkdownRenderer.htmlDocument(for: markdown, configuration: configuration)
+        let baseURL = PreviewResourceSchemeHandler.baseURL
+        let loadHTML = { [weak self, weak wv] in
+            guard let self, let wv, generation == self.renderGeneration else { return }
+            self.hasCommittedDocument = false
+            self.navigationDidFinish = false
+            self.lastNavigationErrorDescription = nil
+            wv.loadHTMLString(html, baseURL: baseURL)
+        }
+        guard hasCommittedDocument else {
+            loadHTML()
+            return
+        }
+        wv.evaluateJavaScript(
+            "window.aropytCancelRender && window.aropytCancelRender(\(generation))"
+        ) { _, _ in
+            loadHTML()
+        }
     }
 
     /// SwiftPM resource bundles can be laid out differently between `swift run`
@@ -120,6 +202,88 @@ final class PreviewViewController: NSViewController, WKNavigationDelegate, WKScr
                               completionHandler: nil)
     }
 
+    /// Converts pending DOM edits back to Markdown. Concurrent callers share one
+    /// conversion so mode switches and overlapping save requests cannot race.
+    func flushPreviewEdits(completion: @escaping (Result<String?, Error>) -> Void) {
+        guard isDirty else {
+            completion(.success(nil))
+            return
+        }
+        flushCompletions.append(completion)
+        guard !isFlushing else { return }
+        guard let webView else {
+            finishFlush(.failure(FlushError.javaScript("Preview WebView is unavailable")))
+            return
+        }
+
+        isFlushing = true
+        let requestID = UUID().uuidString
+        activeFlushRequestID = requestID
+        let literal = Self.javaScriptStringLiteral(requestID)
+        webView.evaluateJavaScript("window.aropytFlushPreviewEdits && window.aropytFlushPreviewEdits(\(literal))") {
+            [weak self] _, error in
+            guard let self, let error, self.activeFlushRequestID == requestID else { return }
+            self.showLocalizedFlushError(reason: error.localizedDescription)
+            self.finishFlush(.failure(FlushError.javaScript(error.localizedDescription)))
+        }
+    }
+
+    private func finishFlush(_ result: Result<String?, Error>) {
+        activeFlushRequestID = nil
+        isFlushing = false
+        if case .success = result {
+            setDirty(false)
+        }
+        let completions = flushCompletions
+        flushCompletions.removeAll()
+        completions.forEach { $0(result) }
+    }
+
+    private func setDirty(_ dirty: Bool) {
+        guard isDirty != dirty else { return }
+        isDirty = dirty
+        onDirtyStateChanged?(dirty)
+    }
+
+    private func showLocalizedFlushError(reason: String?) {
+        let message: String
+        if let reason, !reason.isEmpty {
+            message = L10n.tr(
+                "preview.flush.error_with_reason",
+                "Could not convert Preview edits back to Markdown: %@. Your edits remain in Preview and the older Markdown was not saved.",
+                reason
+            )
+        } else {
+            message = L10n.tr(
+                "preview.flush.error",
+                "Could not convert Preview edits back to Markdown. Your edits remain in Preview and the older Markdown was not saved."
+            )
+        }
+        let literal = Self.javaScriptStringLiteral(message)
+        webView?.evaluateJavaScript("window.aropytShowFlushError && window.aropytShowFlushError(\(literal))")
+    }
+
+    @objc private func autoSavePreferencesDidChange(_ notification: Notification) {
+        let enabled = AutoSavePreferences.shared.mode == .onChange
+        let message = L10n.tr(
+            "preview.autosave.on_change_warning",
+            "On Change is active. Preview edits to this long document require repeated full-document conversion."
+        )
+        let literal = Self.javaScriptStringLiteral(message)
+        webView?.evaluateJavaScript(
+            "window.aropytSetAutoSaveWarning && window.aropytSetAutoSaveWarning(\(enabled), \(literal))"
+        )
+    }
+
+    private static func javaScriptStringLiteral(_ string: String) -> String {
+        let data = (try? JSONSerialization.data(withJSONObject: [string], options: [.fragmentsAllowed]))
+            ?? Data("[\"\"]".utf8)
+        guard var json = String(data: data, encoding: .utf8) else { return "\"\"" }
+        if json.hasPrefix("[") { json.removeFirst() }
+        if json.hasSuffix("]") { json.removeLast() }
+        return json
+    }
+
     // MARK: - WKScriptMessageHandler
 
     func userContentController(_ userContentController: WKUserContentController,
@@ -128,19 +292,80 @@ final class PreviewViewController: NSViewController, WKNavigationDelegate, WKScr
         case "markdownChanged":
             guard let md = message.body as? String else { return }
             lastSentMarkdown = md
+            setDirty(false)
             onMarkdownEdited?(md)
         case "openLink":
             guard let s = message.body as? String,
                   let url = URL(string: s) else { return }
             NSWorkspace.shared.open(url)
         case "previewReady":
+            if let body = message.body as? [String: Any],
+               let generation = body["generation"] as? Int,
+               generation != renderGeneration {
+                return
+            }
             isReady = true
+            renderState = .ready
+        case "previewDirty":
+            guard let dirty = message.body as? Bool else { return }
+            setDirty(dirty)
+        case "previewState":
+            guard
+                let body = message.body as? [String: Any],
+                let generation = body["generation"] as? Int,
+                generation == renderGeneration,
+                let phase = body["phase"] as? String
+            else { return }
+            if phase == "complete" {
+                renderState = .ready
+            } else {
+                renderState = .rendering(
+                    completed: body["completed"] as? Int ?? 0,
+                    total: body["total"] as? Int ?? 0
+                )
+            }
+        case "previewFlushResult":
+            guard
+                let body = message.body as? [String: Any],
+                let requestID = body["requestID"] as? String,
+                requestID == activeFlushRequestID,
+                let success = body["success"] as? Bool
+            else { return }
+            if success {
+                let markdown = body["markdown"] as? String
+                if let markdown { lastSentMarkdown = markdown }
+                finishFlush(.success(markdown))
+            } else {
+                let reason = body["error"] as? String ?? ""
+                showLocalizedFlushError(reason: reason)
+                finishFlush(.failure(FlushError.conversion(reason)))
+            }
         default:
             break
         }
     }
 
     // MARK: - WKNavigationDelegate
+
+    func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+        hasCommittedDocument = true
+    }
+
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        navigationDidFinish = true
+    }
+
+    func webView(_ webView: WKWebView,
+                 didFail navigation: WKNavigation!,
+                 withError error: Error) {
+        lastNavigationErrorDescription = error.localizedDescription
+    }
+
+    func webView(_ webView: WKWebView,
+                 didFailProvisionalNavigation navigation: WKNavigation!,
+                 withError error: Error) {
+        lastNavigationErrorDescription = error.localizedDescription
+    }
 
     func webView(_ webView: WKWebView,
                  decidePolicyFor navigationAction: WKNavigationAction,
@@ -153,5 +378,93 @@ final class PreviewViewController: NSViewController, WKNavigationDelegate, WKScr
             return
         }
         decisionHandler(.allow)
+    }
+}
+
+private final class WeakScriptMessageHandler: NSObject, WKScriptMessageHandler {
+    weak var delegate: WKScriptMessageHandler?
+
+    init(delegate: WKScriptMessageHandler) {
+        self.delegate = delegate
+    }
+
+    func userContentController(_ userContentController: WKUserContentController,
+                               didReceive message: WKScriptMessage) {
+        delegate?.userContentController(userContentController, didReceive: message)
+    }
+}
+
+private final class PreviewResourceSchemeHandler: NSObject, WKURLSchemeHandler {
+    static let scheme = "aropyt-resource"
+    static let baseURL = URL(string: "\(scheme)://local/")!
+
+    private let resourceDirectory: URL
+
+    init(resourceDirectory: URL) {
+        self.resourceDirectory = resourceDirectory.resolvingSymlinksInPath()
+    }
+
+    func webView(_ webView: WKWebView, start urlSchemeTask: WKURLSchemeTask) {
+        guard let requestURL = urlSchemeTask.request.url else {
+            fail(urlSchemeTask, code: NSURLErrorBadURL)
+            return
+        }
+
+        let relativePath = requestURL.path.removingPercentEncoding?
+            .trimmingCharacters(in: CharacterSet(charactersIn: "/")) ?? ""
+        guard !relativePath.isEmpty, !relativePath.split(separator: "/").contains("..") else {
+            fail(urlSchemeTask, code: NSURLErrorBadURL)
+            return
+        }
+
+        let fileURL = resourceDirectory.appendingPathComponent(relativePath).resolvingSymlinksInPath()
+        let rootPath = resourceDirectory.path.hasSuffix("/")
+            ? resourceDirectory.path
+            : resourceDirectory.path + "/"
+        guard fileURL.path.hasPrefix(rootPath) else {
+            fail(urlSchemeTask, code: NSURLErrorNoPermissionsToReadFile)
+            return
+        }
+
+        do {
+            let data = try Data(contentsOf: fileURL, options: [.mappedIfSafe])
+            let response = URLResponse(
+                url: requestURL,
+                mimeType: Self.mimeType(for: fileURL.pathExtension),
+                expectedContentLength: data.count,
+                textEncodingName: Self.textEncoding(for: fileURL.pathExtension)
+            )
+            urlSchemeTask.didReceive(response)
+            urlSchemeTask.didReceive(data)
+            urlSchemeTask.didFinish()
+        } catch {
+            urlSchemeTask.didFailWithError(error)
+        }
+    }
+
+    func webView(_ webView: WKWebView, stop urlSchemeTask: WKURLSchemeTask) {}
+
+    private func fail(_ task: WKURLSchemeTask, code: Int) {
+        task.didFailWithError(NSError(domain: NSURLErrorDomain, code: code))
+    }
+
+    private static func mimeType(for pathExtension: String) -> String {
+        switch pathExtension.lowercased() {
+        case "js": return "text/javascript"
+        case "css": return "text/css"
+        case "woff2": return "font/woff2"
+        case "svg": return "image/svg+xml"
+        case "png": return "image/png"
+        case "jpg", "jpeg": return "image/jpeg"
+        case "gif": return "image/gif"
+        default: return "application/octet-stream"
+        }
+    }
+
+    private static func textEncoding(for pathExtension: String) -> String? {
+        switch pathExtension.lowercased() {
+        case "js", "css", "svg": return "utf-8"
+        default: return nil
+        }
     }
 }

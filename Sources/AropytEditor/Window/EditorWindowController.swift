@@ -9,6 +9,8 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
 
     private var mainVC: MainViewController?
     private var isObservingToolbarLocalizationChanges = false
+    private var closePreparationRunning = false
+    private var allowsNextClose = false
 
     convenience init() {
         let style: NSWindow.StyleMask = [.titled, .closable, .miniaturizable, .resizable]
@@ -31,6 +33,9 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         vc.document = document
         self.contentViewController = vc
         self.mainVC = vc
+        vc.onBusyStateChanged = { [weak self] busy in
+            self?.setEditingControlsEnabled(!busy)
+        }
         self.window?.delegate = self
         self.window?.toolbar = makeToolbar()
 
@@ -50,6 +55,33 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
 
     deinit {
         NotificationCenter.default.removeObserver(self)
+    }
+
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        if allowsNextClose {
+            allowsNextClose = false
+            return true
+        }
+        guard mainVC?.hasUnflushedPreviewEdits == true else { return true }
+        guard !closePreparationRunning else { return false }
+
+        closePreparationRunning = true
+        mainVC?.prepareToClose { [weak self, weak sender] succeeded in
+            guard let self else { return }
+            self.closePreparationRunning = false
+            guard succeeded, let sender else { return }
+            self.allowsNextClose = true
+            sender.performClose(nil)
+        }
+        return false
+    }
+
+    var hasUnflushedPreviewEdits: Bool {
+        mainVC?.hasUnflushedPreviewEdits == true
+    }
+
+    func prepareForApplicationTermination(completion: @escaping (Bool) -> Void) {
+        mainVC?.prepareToClose(completion: completion) ?? completion(true)
     }
 
     // MARK: - Toolbar
@@ -127,6 +159,13 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
                     button.setAccessibilityLabel(label)
                 }
             }
+        }
+    }
+
+    private func setEditingControlsEnabled(_ enabled: Bool) {
+        for item in window?.toolbar?.items ?? [] where item.itemIdentifier != Self.settingsItemID {
+            item.isEnabled = enabled
+            (item.view as? NSControl)?.isEnabled = enabled
         }
     }
 

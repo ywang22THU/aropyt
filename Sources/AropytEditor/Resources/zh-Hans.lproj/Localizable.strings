@@ -60,6 +60,7 @@
 "toolbar.format.quote.tooltip" = "引用块（仅预览模式）";
 
 "settings.window.title" = "设置";
+"settings.tabs.general" = "通用";
 "settings.tabs.shortcuts" = "快捷键";
 "settings.tabs.theme" = "主题";
 "settings.tabs.about" = "关于";
@@ -71,6 +72,22 @@
 "settings.language.option.system" = "跟随系统";
 "settings.language.option.english" = "英文";
 "settings.language.option.zh_hans" = "简体中文";
+"settings.general.title" = "通用";
+"settings.autosave.mode" = "自动保存";
+"settings.autosave.delay" = "延迟";
+"settings.autosave.seconds" = "秒";
+"settings.autosave.mode.on_change" = "内容变化时";
+"settings.autosave.mode.after_delay" = "延迟后";
+"settings.autosave.mode.never" = "永不";
+"settings.autosave.on_change_warning" = "“内容变化时”可能造成较高 CPU 占用：在预览中编辑超长文档会反复转换全文。";
+
+"preview.render.progress" = "正在渲染预览… %d / %d 个内容块";
+"preview.render.complete" = "预览渲染完成";
+"preview.render.converting" = "正在转换预览编辑…";
+"preview.autosave.on_change_warning" = "当前启用了“内容变化时”自动保存。此超长文档的预览编辑会反复执行全文转换。";
+"preview.flush.error" = "无法把预览编辑转换回 Markdown。编辑内容仍保留在预览中，旧 Markdown 未写入磁盘。";
+"preview.flush.error_with_reason" = "无法把预览编辑转换回 Markdown：%@。编辑内容仍保留在预览中，旧 Markdown 未写入磁盘。";
+"preview.flush.alert.title" = "预览编辑未保存";
 
 "settings.shortcuts.hint" = "点击快捷键并按下新的组合键。录制期间会拦截应用内其他快捷键，冲突的修改不会保存。";
 "settings.shortcuts.column.action" = "操作";

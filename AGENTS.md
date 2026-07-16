@@ -31,25 +31,24 @@ swift run AropytEditor
 ## 代码结构
 
 - `Package.swift`：SPM 配置。包含 `MarkdownCore` library target 和 `AropytEditor` executable target；`Info.plist` 被 exclude，并通过 linker `-sectcreate __TEXT __info_plist` 嵌入。
-- `Sources/MarkdownCore/`：纯 Swift 逻辑，不引入 AppKit。当前核心是 `MarkdownRenderer.swift`，负责生成 WebView 使用的完整 HTML 模板。
+- `Sources/MarkdownCore/`：纯 Swift 逻辑，不引入 AppKit。`LongDocumentPolicy.swift` 定义 512 KiB / 1 万行阈值；`MarkdownRenderer.swift` 生成普通或渐进预览 HTML。
 - `Sources/AropytEditor/main.swift`：程序入口。第一行必须 `_ = AppDocumentController()`，保证裸跑时 `NSDocumentController.shared` 是自定义 controller。
 - `Sources/AropytEditor/AppDelegate.swift`：安装菜单栏、应用启动/退出行为、动态应用快捷键配置。
 - `Sources/AropytEditor/AppDocumentController.swift`：自定义 `NSDocumentController`，硬编码 Markdown 文档类型、document class、Open panel 文件类型。
 - `Sources/AropytEditor/Document/MarkdownDocument.swift`：`NSDocument` 子类，文档文本的单一数据源。负责读写、undo、变更通知。
 - `Sources/AropytEditor/Window/EditorWindowController.swift`：窗口和 toolbar。用显式 `setup(document:)` 初始化，不依赖 `windowDidLoad`。
-- `Sources/AropytEditor/Window/MainViewController.swift`：源码 / 预览模式协调器。负责 child VC 切换、文档同步、预览编辑回写防循环。
-- `Sources/AropytEditor/Window/SourceViewController.swift`：源码模式，`NSTextView` + `NSScrollView` + 正则高亮。
-- `Sources/AropytEditor/Window/PreviewViewController.swift`：预览模式，`WKWebView` 渲染、contenteditable 编辑、JS bridge、链接打开、格式化命令。
-- `Sources/AropytEditor/Highlighter/MarkdownHighlighter.swift`：源码模式正则高亮，并给 Markdown 链接设置 `.link` attribute 以支持 Cmd+Click。
-- `Sources/AropytEditor/Settings/`：Settings 窗口、Shortcuts、Theme、About。`ShortcutManager` 是快捷键数据层；`AboutTabViewController.swift` 展示 logo、版本号和权限说明。
+- `Sources/AropytEditor/Window/MainViewController.swift`：源码 / 预览模式协调器。负责 child VC 切换、文档同步、异步 preview flush、保存与自动保存前准备。
+- `Sources/AropytEditor/Window/SourceViewController.swift`：源码模式，TextKit 非连续布局、可见区优先和后台分批正则高亮。
+- `Sources/AropytEditor/Window/PreviewViewController.swift`：预览模式，`WKWebView` 渐进渲染、dirty / flush 状态、JS bridge、本地资源 scheme、链接和格式化命令。
+- `Sources/AropytEditor/Highlighter/MarkdownHighlighter.swift`：支持范围高亮与段落范围扩展，并给 Markdown 链接设置 `.link` attribute。
+- `Sources/AropytEditor/AutoSave/`：`AutoSavePreferences` 和按文档串行合并请求的 `AutoSaveManager`。
+- `Sources/AropytEditor/Settings/`：Settings 窗口、General 自动保存、Shortcuts、Theme、About。
 - `Sources/AropytEditor/Resources/`：`marked.umd.js`、`highlight.min.js`、`katex.min.js`、`auto-render.min.js`、`katex.min.css`、`fonts/` KaTeX woff2 字体、`mermaid.min.js`、`turndown.js`、`turndown-plugin-gfm.js`、GitHub CSS 主题、`Info.plist`。
 - `package.sh`：release build、组装 `.app`、ad-hoc 签名、生成 DMG/PKG。
 - `README.md`：功能、目录、构建、打包说明。
 - `ARCHITECTURE.md`：架构设计、数据流、关键决策。
 - `PROMPT.md`：原始需求。
 - `JOURNAL.md`：历史开发日志。
-
-`AGENTS.md` 和 `CLAUDE.md` 已删除，不再作为依据。
 
 ## 关键架构事实
 
@@ -60,6 +59,8 @@ swift run AropytEditor
 - `data(ofType:)` 使用 UTF-8 保存。
 - `updateText(_:actionName:)` 注册 undo，更新 `text`，调用 `updateChangeCount(.changeDone)`。
 - `text` didSet 发送 `.markdownDocumentTextChanged` 通知。
+- `MarkdownDocument.isLongDocument` 使用 UTF-8 512 KiB 或 1 万行的包含边界判定。
+- `autosavesInPlace` 为 `false`；所有自动保存由 `AutoSaveManager` 协调，避免预览 dirty 时写入旧 Markdown。
 - `NSDocument` 子类里如果需要打印，使用 `Swift.print(...)`，避免和 `NSDocument.print()` 歧义。
 
 ### 初始化和窗口
@@ -71,28 +72,38 @@ swift run AropytEditor
 
 ### 源码 / 预览同步
 
-- `MainViewController` 默认进入 `.source`。
+- `MainViewController` 默认进入 `.preview`，隐藏的 source view 不预先高亮长文档。
 - 切换到 preview 前，源码模式会把当前 `sourceVC.currentText` 写入 `document.text`。
 - 预览编辑通过 `PreviewViewController.onMarkdownEdited` 回写 document。
 - `isApplyingFromPreview` 用于避免预览编辑回写后 WebView 被重新 `loadHTMLString`，否则光标和滚动位置会丢。
 - `SourceViewController.setText(_:)` 会触发自身 view 加载，保证 `textView` 创建后再写入文本。
+- 长文档预览 dirty 时，切源码、Save、Save As、关闭窗口和应用退出都会先异步 flush；失败会停止后续写盘或关闭。
 
 ### 源码模式
 
 - `NSTextView` 必须设置 `minSize`、`maxSize`、`isVerticallyResizable`、`isHorizontallyResizable`、`autoresizingMask`、`textContainer.widthTracksTextView`、`textContainer.containerSize`，否则可能空白。
 - 源码模式关闭富文本、自动替换、拼写纠正、自动链接检测和 data detection。
 - `MarkdownHighlighter` 负责标题、引用、列表、代码、粗体、斜体、链接、图片、删除线的颜色和字体属性。
+- `allowsNonContiguousLayout` 开启；长文档先高亮可见区，再以约 64 KiB 批次让出主线程，generation 会取消过期批次。
+- 编辑只重置并高亮受影响段落；UTF-8 大小和行数使用局部 delta 维护，不在普通按键路径重新扫描全文。
 
 ### 预览模式
 
 - `PreviewViewController.webView` 懒加载；`load(markdown:)` 先 `_ = self.view`。
-- `MarkdownRenderer.htmlDocument(for:)` 生成完整 HTML，加载本地 JS/CSS 并把原始 Markdown 用 JSON 字符串字面量安全嵌入。
+- `MarkdownRenderer.htmlDocument(for:configuration:)` 生成完整 HTML；Markdown 和本地化 payload 同时做 JSON 与 script 上下文转义。
+- 超长预览先 `marked.lexer`，首批最多 80 token / 64 KiB，后续按 12ms 预算空闲调度；渲染期间只读并显示进度，完成后恢复编辑。
 - 预览模式用本地 KaTeX 渲染数学公式，支持 `$...$`、`$$...$$`、`\\(...\\)`、`\\[...\\]`。进入 `marked.parse` 前会保护完整数学片段，避免 `_`、`<`、`&` 或 `\\[` 被 Markdown 解析破坏。
-- 预览模式用本地 Mermaid 渲染 `mermaid` fenced code block；图表容器通过 `data-mermaid-source` 保留原始源码，Turndown 回写时恢复 fenced code，避免 SVG 污染 Markdown。
-- 预览 `<article>` 是 `contenteditable=true`；input 事件经 turndown 转回 Markdown，通过 `markdownChanged` message handler 回 Swift。
+- Mermaid 通过 `IntersectionObserver` 在接近视口时才加载脚本和渲染；`data-mermaid-source` 保留原始源码供 Turndown 回写。
+- 普通预览 input 继续实时 Turndown；超长预览只标 dirty，`flushPreviewEdits` 才执行全文转换。
 - `openLink` message handler 使用系统浏览器打开链接。
 - `previewReady` 标记 WebView 可接收格式化命令。
-- `PreviewViewController.resourceBaseURL()` 会选择实际包含 `marked.umd.js` 的目录，兼容 SwiftPM 裸跑和打包 app 的资源 bundle 布局。
+- `PreviewViewController.resourceBaseURL()` 查找资源目录，再由只读 `aropyt-resource://` scheme 提供给 WebView，兼容 SwiftPM、测试与打包 app。
+
+### 自动保存
+
+- `AutoSaveMode` 为 On Change、After Delay、Never，默认 Never；延迟默认 1 秒并夹取到 0.5–60 秒。
+- On Change 串行化保存并把运行期间的新变化合并成一次后续请求；After Delay 重置 debounce；失败保留 pending 状态等待后续重试。
+- 设置通知即时更新所有已注册文档；长文档使用 On Change 时，General 与预览状态区都显示本地化性能警告。
 
 ## 项目进展
 
@@ -109,6 +120,10 @@ swift run AropytEditor
 - toolbar 切换源码 / 预览。
 - toolbar 格式化按钮：bold、italic、strikethrough、H1、H2、inline code、code block、unordered list、ordered list、blockquote。
 - Settings：快捷键、主题、About（logo、版本号、权限说明）。
+- 超长 Markdown 源码增量高亮与预览渐进加载（目标 2 MB / 5 万行）。
+- 长文档预览 dirty / 异步 flush 与保存、关闭、退出一致性保护。
+- General 自动保存设置：On Change、After Delay、Never。
+- Swift Testing 单元与 WebKit 集成测试套件。
 - 打包脚本 `package.sh`，可生成 `.app` 和 DMG/PKG。
 
 待实现 / 待完善：
@@ -122,6 +137,10 @@ swift run AropytEditor
 
 最近一次已知验证：
 
+- 2026-07-16：Xcode toolchain `swift test --disable-sandbox` 全部 26 项通过；包括真实 WebKit 的 2 MB / 5 万行、复杂块边界、Mermaid 懒渲染、generation 取消、Cmd+S / 切源码前 flush 落盘、关闭失败保护和普通文档实时回写。
+- 2 MB / 5 万行集成用例首批内容在 1 秒目标内出现，完整预览随后完成并与整篇渲染结果一致。
+- 源码局部按键高亮低于 50ms、64 KiB 后台批次低于 100ms 的测试通过。
+- 2026-07-16：`xcrun swift build --disable-sandbox` 通过。
 - 2026-06-14：Settings 的 Help 替换为 About 后，`swift build` 通过。
 - `swift build` 通过。
 - `./package.sh dmg` 通过，生成 `dist/AropytEditor.app` 和 `dist/Aropyt-0.1.0.dmg`。

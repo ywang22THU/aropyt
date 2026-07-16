@@ -60,6 +60,7 @@
 "toolbar.format.quote.tooltip" = "Block quote (Preview mode only)";
 
 "settings.window.title" = "Settings";
+"settings.tabs.general" = "General";
 "settings.tabs.shortcuts" = "Shortcuts";
 "settings.tabs.theme" = "Theme";
 "settings.tabs.about" = "About";
@@ -71,6 +72,22 @@
 "settings.language.option.system" = "Follow System";
 "settings.language.option.english" = "English";
 "settings.language.option.zh_hans" = "Simplified Chinese";
+"settings.general.title" = "General";
+"settings.autosave.mode" = "Auto Save";
+"settings.autosave.delay" = "Delay";
+"settings.autosave.seconds" = "seconds";
+"settings.autosave.mode.on_change" = "On Change";
+"settings.autosave.mode.after_delay" = "After Delay";
+"settings.autosave.mode.never" = "Never";
+"settings.autosave.on_change_warning" = "On Change can cause high CPU usage: editing a long document in Preview repeatedly converts the full document.";
+
+"preview.render.progress" = "Rendering preview… %d of %d blocks";
+"preview.render.complete" = "Preview complete";
+"preview.render.converting" = "Converting preview edits…";
+"preview.autosave.on_change_warning" = "On Change is active. Preview edits to this long document require repeated full-document conversion.";
+"preview.flush.error" = "Could not convert Preview edits back to Markdown. Your edits remain in Preview and the older Markdown was not saved.";
+"preview.flush.error_with_reason" = "Could not convert Preview edits back to Markdown: %@. Your edits remain in Preview and the older Markdown was not saved.";
+"preview.flush.alert.title" = "Preview edits were not saved";
 
 "settings.shortcuts.hint" = "Click a shortcut and press the new key combination. Recording blocks other in-app shortcuts, and conflicting changes are not saved.";
 "settings.shortcuts.column.action" = "Action";

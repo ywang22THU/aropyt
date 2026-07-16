@@ -4,12 +4,14 @@ import AppKit
 final class SettingsTabViewController: NSSplitViewController {
 
     private enum Tab: Int, CaseIterable {
-        case shortcuts = 0
-        case theme = 1
-        case about = 2
+        case general = 0
+        case shortcuts = 1
+        case theme = 2
+        case about = 3
 
         var title: String {
             switch self {
+            case .general:   return L10n.tr("settings.tabs.general", "General")
             case .shortcuts: return L10n.tr("settings.tabs.shortcuts", "Shortcuts")
             case .theme:     return L10n.tr("settings.tabs.theme", "Theme")
             case .about:     return L10n.tr("settings.tabs.about", "About")
@@ -18,6 +20,7 @@ final class SettingsTabViewController: NSSplitViewController {
 
         var symbol: String {
             switch self {
+            case .general:   return "gearshape"
             case .shortcuts: return "keyboard"
             case .theme:     return "paintbrush"
             case .about:     return "info.circle"
@@ -27,7 +30,7 @@ final class SettingsTabViewController: NSSplitViewController {
 
     private var sidebarVC: SidebarListViewController!
     private var contentContainerVC: ContentContainerViewController!
-    private var currentTab: Tab = .shortcuts
+    private var currentTab: Tab = .general
     private var tabControllers: [Tab: NSViewController] = [:]
 
     override func viewDidLoad() {
@@ -56,7 +59,7 @@ final class SettingsTabViewController: NSSplitViewController {
         contentItem.minimumThickness = 400
         addSplitViewItem(contentItem)
 
-        switchTo(.shortcuts)
+        switchTo(.general)
         sidebar.selectRow(0)
 
         NotificationCenter.default.addObserver(
@@ -80,6 +83,7 @@ final class SettingsTabViewController: NSSplitViewController {
         if let vc = tabControllers[tab] { return vc }
         let vc: NSViewController
         switch tab {
+        case .general:   vc = GeneralTabViewController()
         case .shortcuts: vc = ShortcutsTabViewController()
         case .theme:     vc = ThemeTabViewController()
         case .about:     vc = AboutTabViewController()
