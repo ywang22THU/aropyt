@@ -11,6 +11,7 @@ macOS 上的本地 Markdown 编辑器，使用 Swift + AppKit 开发，纯 Swift
 -   **预览模式**：基于 `WKWebView` + 本地 `marked.js` + `highlight.js`，支持完整 CommonMark/GFM
     -   粗体、斜体、删除线、列表、标题、代码块（带语法高亮）、表格、图片、链接、引用块、HR 等
     -   数学公式：支持 `$...$`、`$$...$$`、`\\(...\\)`、`\\[...\\]`，基于本地 KaTeX 离线渲染
+    -   Mermaid 图表：将 `mermaid` fenced code block 渲染为图表，基于本地 Mermaid 离线渲染
 -   工具栏一键切换源码 / 预览模式
 -   预览模式下的所见即所得编辑（基于 contenteditable + turndown 反向生成 markdown）
 -   预览模式 Cmd+点击 链接由系统浏览器打开
@@ -37,7 +38,7 @@ macOS 上的本地 Markdown 编辑器，使用 Swift + AppKit 开发，纯 Swift
 
 | 文件 | 作用 |
 | --- | --- |
-| `MarkdownRenderer.swift` | 把 markdown 字符串嵌入 HTML 模板返回完整 HTML 文档。包含 `<link>` CSS、`<script>` 引用 marked.js / highlight.js / KaTeX，以及内联 JS 调 `marked.parse` 渲染。**改预览页面样式（暗色模式、代码块外观、字体、数学公式等）时改这里。** 字符串嵌入用 `JSONSerialization` 安全转义为 JS 字面量。 |
+| `MarkdownRenderer.swift` | 把 markdown 字符串嵌入 HTML 模板返回完整 HTML 文档。包含 `<link>` CSS、`<script>` 引用 marked.js / highlight.js / KaTeX / Mermaid，以及内联 JS 调 `marked.parse` 渲染。**改预览页面样式（暗色模式、代码块、数学公式、Mermaid 图表等）时改这里。** 字符串嵌入用 `JSONSerialization` 安全转义为 JS 字面量。 |
 
 ### `Sources/AropytEditor/`（App 主体，AppKit）
 
@@ -89,6 +90,7 @@ macOS 上的本地 Markdown 编辑器，使用 Swift + AppKit 开发，纯 Swift
 | `katex.min.js` | 第三方数学公式渲染库（KaTeX）。用于把 TeX 公式渲染为 HTML/MathML。 |
 | `auto-render.min.js` | KaTeX auto-render 插件。扫描预览内容中的 `$...$`、`$$...$$`、`\\(...\\)`、`\\[...\\]` 并渲染。 |
 | `katex.min.css` | KaTeX 样式。依赖 `fonts/` 下的 KaTeX woff2 字体文件。 |
+| `mermaid.min.js` | 第三方图表渲染库（Mermaid v11.16.0）。把 `mermaid` fenced code block 离线渲染为 SVG。 |
 | `turndown.js` | 第三方 HTML→Markdown 反向转换库。预览模式下 `contenteditable` 编辑后，把当前 DOM 转回 markdown 写回 `document.text`。 |
 | `turndown-plugin-gfm.js` | turndown 的 GFM 插件，补齐表格 / 删除线 / 任务列表的反向转换。 |
 | `github.min.css` | highlight.js 的 GitHub light 主题。通过 `media="(prefers-color-scheme: light)"` 仅亮色模式生效。 |
@@ -202,6 +204,6 @@ Ad-hoc 签名在自己机器上可用，分发给他人需要：
 详见 [ARCHITECTURE.md](ARCHITECTURE.md)。简短版：
 
 -   **NSDocument 单一数据源**：所有编辑都经过 `MarkdownDocument.text`
--   **预览渲染本地化**：`marked.js`、`highlight.js` 和 `KaTeX` 打包在 `Resources/`，离线可用
+-   **预览渲染本地化**：`marked.js`、`highlight.js`、`KaTeX` 和 `Mermaid` 打包在 `Resources/`，离线可用
 -   **Info.plist 通过 linker 嵌入**：因为 SPM `.process("Resources")` 禁止把 Info.plist 当资源
 -   **自定义 NSDocumentController**：脱 .app bundle 跑时让文档类型注册生效

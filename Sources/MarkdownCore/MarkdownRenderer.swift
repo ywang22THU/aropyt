@@ -3,7 +3,8 @@ import Foundation
 /// 纯 Swift 的 Markdown HTML 模板生成器。
 ///
 /// 这里只负责把 markdown 字符串嵌入到一个 HTML 文档里，由 WebView 中的 marked.js
-/// 真正解析。这样做的好处是渲染规则与 GFM 完全一致，且离线可用。
+/// 真正解析，并用 KaTeX / Mermaid 渲染公式和图表。这样做的好处是渲染规则与 GFM
+/// 完全一致，且离线可用。
 ///
 /// 预览模式同时是可编辑的：`<article>` 设了 `contenteditable=true`，
 /// 内嵌脚本会监听 `input` 事件，用 turndown.js 把 HTML 反向转回 markdown，
@@ -11,7 +12,8 @@ import Foundation
 public enum MarkdownRenderer {
 
     /// 生成完整 HTML 文档。WebView 应使用 baseURL 指向 Resources 目录，
-    /// 这样 `marked.umd.js` / `highlight.min.js` / 等资源的相对路径才能解析。
+    /// 这样 `marked.umd.js` / `highlight.min.js` / `mermaid.min.js` 等资源的相对路径
+    /// 才能解析。
     public static func htmlDocument(for markdown: String) -> String {
         let payload = jsStringLiteral(markdown)
         return """
@@ -92,6 +94,17 @@ public enum MarkdownRenderer {
                 .markdown-body .aropyt-math-block > .katex-display {
                     margin: 0;
                 }
+                .markdown-body .aropyt-mermaid {
+                    display: flex;
+                    justify-content: center;
+                    margin: 1em 0;
+                    padding: 8px 0;
+                    overflow-x: auto;
+                }
+                .markdown-body .aropyt-mermaid svg {
+                    max-width: 100%;
+                    height: auto;
+                }
                 @media (prefers-color-scheme: dark) {
                     .markdown-body pre {
                         background: #161b22;
@@ -109,6 +122,7 @@ public enum MarkdownRenderer {
             <script src="highlight.min.js"></script>
             <script src="katex.min.js"></script>
             <script src="auto-render.min.js"></script>
+            <script src="mermaid.min.js"></script>
             <script src="turndown.js"></script>
             <script src="turndown-plugin-gfm.js"></script>
         </head>
@@ -254,6 +268,52 @@ public enum MarkdownRenderer {
                         }
                     }
 
+                    function prepareMermaidDiagrams() {
+                        var diagrams = [];
+                        content.querySelectorAll('pre code.language-mermaid').forEach(function(code) {
+                            var pre = code.parentElement;
+                            if (!pre) return;
+
+                            var source = code.textContent || '';
+                            if (source.endsWith('\\n')) source = source.slice(0, -1);
+
+                            var diagram = document.createElement('div');
+                            diagram.className = 'mermaid aropyt-mermaid';
+                            diagram.setAttribute('contenteditable', 'false');
+                            diagram.setAttribute('data-mermaid-source', source);
+                            diagram.textContent = source;
+                            pre.replaceWith(diagram);
+                            diagrams.push(diagram);
+                        });
+                        return diagrams;
+                    }
+
+                    function renderMermaid() {
+                        var diagrams = prepareMermaidDiagrams();
+                        if (diagrams.length === 0 || !window.mermaid) return;
+
+                        try {
+                            var isDark = window.matchMedia
+                                && window.matchMedia('(prefers-color-scheme: dark)').matches;
+                            mermaid.initialize({
+                                startOnLoad: false,
+                                securityLevel: 'strict',
+                                theme: isDark ? 'dark' : 'default'
+                            });
+                            var result = mermaid.run({
+                                nodes: diagrams,
+                                suppressErrors: true
+                            });
+                            if (result && typeof result.catch === 'function') {
+                                result.catch(function(error) {
+                                    console.error('mermaid render failed:', error);
+                                });
+                            }
+                        } catch (e) {
+                            console.error('mermaid render failed:', e);
+                        }
+                    }
+
                     // ---------- marked: markdown -> HTML ----------
                     if (window.marked) {
                         marked.setOptions({
@@ -267,6 +327,7 @@ public enum MarkdownRenderer {
                         content.textContent = raw;
                     }
                     renderMath();
+                    renderMermaid();
                     if (window.hljs) {
                         document.querySelectorAll('pre code').forEach(function(el) {
                             try { hljs.highlightElement(el); } catch (e) {}
@@ -315,6 +376,17 @@ public enum MarkdownRenderer {
                             replacement: function(_, node) {
                                 var tex = texFromKatexNode(node);
                                 return tex ? '$' + tex + '$' : '';
+                            }
+                        });
+                        turndownService.addRule('mermaidDiagram', {
+                            filter: function(node) {
+                                return node.nodeType === 1
+                                    && node.classList
+                                    && node.classList.contains('aropyt-mermaid');
+                            },
+                            replacement: function(_, node) {
+                                var source = node.getAttribute('data-mermaid-source') || '';
+                                return '\\n\\n```mermaid\\n' + source + '\\n```\\n\\n';
                             }
                         });
                         // 让 highlight.js 的 <span class="hljs-..."> 不污染输出
