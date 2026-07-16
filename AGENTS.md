@@ -2,7 +2,7 @@
 
 本文件用于保持对当前项目的感知，避免 compact 或重开 thread 后重新完整读取项目代码。
 
-## Memory 维护规则
+## HARD RULES
 
 - 本文件只维护三类信息：代码结构、项目进展、最近一次用户 `/goal` input。
 - 开始处理新的 `/goal` 时，把用户原始输入写入“最近一次 /goal input”。
@@ -41,7 +41,7 @@ swift run AropytEditor
 - `Sources/AropytEditor/Window/SourceViewController.swift`：源码模式，`NSTextView` + `NSScrollView` + 正则高亮。
 - `Sources/AropytEditor/Window/PreviewViewController.swift`：预览模式，`WKWebView` 渲染、contenteditable 编辑、JS bridge、链接打开、格式化命令。
 - `Sources/AropytEditor/Highlighter/MarkdownHighlighter.swift`：源码模式正则高亮，并给 Markdown 链接设置 `.link` attribute 以支持 Cmd+Click。
-- `Sources/AropytEditor/Settings/`：Settings 窗口、Shortcuts、Theme、Help。`ShortcutManager` 是快捷键数据层。
+- `Sources/AropytEditor/Settings/`：Settings 窗口、Shortcuts、Theme、About。`ShortcutManager` 是快捷键数据层；`AboutTabViewController.swift` 展示 logo、版本号和权限说明。
 - `Sources/AropytEditor/Resources/`：`marked.umd.js`、`highlight.min.js`、`katex.min.js`、`auto-render.min.js`、`katex.min.css`、`fonts/` KaTeX woff2 字体、`turndown.js`、`turndown-plugin-gfm.js`、GitHub CSS 主题、`Info.plist`。
 - `package.sh`：release build、组装 `.app`、ad-hoc 签名、生成 DMG/PKG。
 - `README.md`：功能、目录、构建、打包说明。
@@ -106,13 +106,8 @@ swift run AropytEditor
 - 预览模式 Cmd+Click 打开链接。
 - toolbar 切换源码 / 预览。
 - toolbar 格式化按钮：bold、italic、strikethrough、H1、H2、inline code、code block、unordered list、ordered list、blockquote。
-- Settings：快捷键、主题、Help。
+- Settings：快捷键、主题、About（logo、版本号、权限说明）。
 - 打包脚本 `package.sh`，可生成 `.app` 和 DMG/PKG。
-- `CODE_MEMORY.md` 已取代旧的 `AGENTS.md` / `CLAUDE.md` 作为项目上下文依据。
-
-最近重要修复：
-
-- `113f993 Fix packaged preview rendering`：修复打包后预览模式显示原始 Markdown 的问题。核心修复是 `PreviewViewController.resourceBaseURL()` 按实际资源文件存在性选择 baseURL，并补强首次打开文件时 view 加载顺序。
 
 待实现 / 待完善：
 
@@ -125,6 +120,7 @@ swift run AropytEditor
 
 最近一次已知验证：
 
+- 2026-06-14：Settings 的 Help 替换为 About 后，`swift build` 通过。
 - `swift build` 通过。
 - `./package.sh dmg` 通过，生成 `dist/AropytEditor.app` 和 `dist/Aropyt-0.1.0.dmg`。
 - `codesign --verify --deep --strict --verbose=2 dist/AropytEditor.app` 通过。
