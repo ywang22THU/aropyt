@@ -43,6 +43,7 @@ final class PreviewViewController: NSViewController, WKNavigationDelegate, WKScr
     private(set) var lastNavigationErrorDescription: String?
     private var activeFlushRequestID: String?
     private var flushCompletions: [(Result<String?, Error>) -> Void] = []
+    private var pendingViewportSourceOffset: Int?
 
     /// 用户在预览中编辑触发的 markdown 更新回调
     var onMarkdownEdited: ((String) -> Void)?
@@ -202,6 +203,43 @@ final class PreviewViewController: NSViewController, WKNavigationDelegate, WKScr
                               completionHandler: nil)
     }
 
+    /// Reads the UTF-16 Markdown offset aligned with the top of the preview
+    /// viewport. The page derives it from source ranges attached to rendered
+    /// top-level blocks.
+    func viewportSourceOffset(completion: @escaping (Int?) -> Void) {
+        guard let webView else {
+            completion(nil)
+            return
+        }
+        webView.evaluateJavaScript(
+            "window.aropytViewportSourceOffset ? window.aropytViewportSourceOffset() : null"
+        ) { value, error in
+            guard error == nil, let number = value as? NSNumber else {
+                completion(nil)
+                return
+            }
+            completion(number.intValue)
+        }
+    }
+
+    /// Restores a UTF-16 Markdown viewport offset. Requests made while a new
+    /// preview is rendering are retained and applied as soon as previewReady is
+    /// received, preventing the initial load from resetting the position.
+    func scrollToSourceOffset(_ offset: Int) {
+        pendingViewportSourceOffset = max(0, offset)
+        applyPendingViewportSourceOffsetIfPossible()
+    }
+
+    private func applyPendingViewportSourceOffsetIfPossible() {
+        guard isReady, let webView, let offset = pendingViewportSourceOffset else { return }
+        webView.evaluateJavaScript(
+            "window.aropytScrollToSourceOffset && window.aropytScrollToSourceOffset(\(offset))"
+        ) { [weak self] _, error in
+            guard let self, error == nil, self.pendingViewportSourceOffset == offset else { return }
+            self.pendingViewportSourceOffset = nil
+        }
+    }
+
     /// Converts pending DOM edits back to Markdown. Concurrent callers share one
     /// conversion so mode switches and overlapping save requests cannot race.
     func flushPreviewEdits(completion: @escaping (Result<String?, Error>) -> Void) {
@@ -306,6 +344,7 @@ final class PreviewViewController: NSViewController, WKNavigationDelegate, WKScr
             }
             isReady = true
             renderState = .ready
+            applyPendingViewportSourceOffsetIfPossible()
         case "previewDirty":
             guard let dirty = message.body as? Bool else { return }
             setDirty(dirty)

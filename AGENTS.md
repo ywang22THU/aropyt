@@ -77,6 +77,8 @@ swift run AropytEditor
 - 预览编辑通过 `PreviewViewController.onMarkdownEdited` 回写 document。
 - `isApplyingFromPreview` 用于避免预览编辑回写后 WebView 被重新 `loadHTMLString`，否则光标和滚动位置会丢。
 - `SourceViewController.setText(_:)` 会触发自身 view 加载，保证 `textView` 创建后再写入文本。
+- 源码与预览切换时以视口顶部的 UTF-16 Markdown 偏移为共同锚点；源码用 TextKit glyph/character 映射，预览用顶层 token 的 `data-aropyt-source-start/end` 范围双向恢复。
+- 数学保护占位符保存原始/保护后范围并转换偏移；新预览尚未完成渐进渲染时会暂存恢复请求，收到 `previewReady` 后执行。
 - 长文档预览 dirty 时，切源码、Save、Save As、关闭窗口和应用退出都会先异步 flush；失败会停止后续写盘或关闭。
 
 ### 源码模式
@@ -124,6 +126,7 @@ swift run AropytEditor
 - 长文档预览 dirty / 异步 flush 与保存、关闭、退出一致性保护。
 - General 自动保存设置：On Change、After Delay、Never。
 - Swift Testing 单元与 WebKit 集成测试套件。
+- 源码 / 预览模式切换时双向同步视窗位置。
 - 打包脚本 `package.sh`，可生成 `.app` 和 DMG/PKG。
 
 待实现 / 待完善：
@@ -137,6 +140,7 @@ swift run AropytEditor
 
 最近一次已知验证：
 
+- 2026-07-17：Xcode toolchain `swift test --disable-sandbox` 全部 28 项通过；新增普通/超长文档双向视窗同步测试，覆盖中文、emoji 与数学公式偏移。
 - 2026-07-16：Xcode toolchain `swift test --disable-sandbox` 全部 26 项通过；包括真实 WebKit 的 2 MB / 5 万行、复杂块边界、Mermaid 懒渲染、generation 取消、Cmd+S / 切源码前 flush 落盘、关闭失败保护和普通文档实时回写。
 - 2 MB / 5 万行集成用例首批内容在 1 秒目标内出现，完整预览随后完成并与整篇渲染结果一致。
 - 源码局部按键高亮低于 50ms、64 KiB 后台批次低于 100ms 的测试通过。

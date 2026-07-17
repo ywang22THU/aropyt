@@ -26,6 +26,9 @@ struct MarkdownRendererTests {
         #expect(html.contains("IntersectionObserver"))
         #expect(html.contains("window.aropytCancelRender"))
         #expect(html.contains("window.aropytFlushPreviewEdits"))
+        #expect(html.contains("data-aropyt-source-start"))
+        #expect(html.contains("window.aropytViewportSourceOffset"))
+        #expect(html.contains("window.aropytScrollToSourceOffset"))
     }
 
     @Test func localizedConfigurationIsSafelyEmbedded() {

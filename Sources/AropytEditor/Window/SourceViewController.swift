@@ -86,6 +86,71 @@ final class SourceViewController: NSViewController, NSTextViewDelegate {
         startInitialHighlighting(for: s)
     }
 
+    /// Returns the UTF-16 source offset currently aligned with the top of the
+    /// visible source viewport. NSTextView and JavaScript strings both use this
+    /// coordinate system, so no lossy Unicode conversion is needed.
+    func viewportSourceOffset() -> Int {
+        guard
+            let textView,
+            let scrollView,
+            let layoutManager = textView.layoutManager,
+            let textContainer = textView.textContainer,
+            layoutManager.numberOfGlyphs > 0
+        else { return 0 }
+
+        let visibleRect = scrollView.contentView.bounds
+        layoutManager.ensureLayout(forBoundingRect: visibleRect, in: textContainer)
+        let origin = textView.textContainerOrigin
+        let containerPoint = NSPoint(
+            x: max(0, visibleRect.minX - origin.x),
+            y: max(0, visibleRect.minY - origin.y)
+        )
+        let glyphIndex = min(
+            layoutManager.glyphIndex(for: containerPoint, in: textContainer),
+            max(0, layoutManager.numberOfGlyphs - 1)
+        )
+        return min(layoutManager.characterIndexForGlyph(at: glyphIndex), textView.textStorage?.length ?? 0)
+    }
+
+    /// Aligns a UTF-16 source offset with the top of the source viewport without
+    /// changing the user's selection.
+    func scrollToSourceOffset(_ requestedOffset: Int) {
+        performScrollToSourceOffset(requestedOffset)
+        // NSTextView may update its document height after the current run-loop
+        // turn when it has just been embedded or received new text. Reapply once
+        // after layout settles so the clip view does not clamp to the old height.
+        DispatchQueue.main.async { [weak self] in
+            self?.performScrollToSourceOffset(requestedOffset)
+        }
+    }
+
+    private func performScrollToSourceOffset(_ requestedOffset: Int) {
+        guard
+            let textView,
+            let scrollView,
+            let layoutManager = textView.layoutManager,
+            let textContainer = textView.textContainer,
+            let storage = textView.textStorage,
+            storage.length > 0
+        else { return }
+
+        let offset = min(max(0, requestedOffset), storage.length - 1)
+        let characterRange = NSRange(location: offset, length: 1)
+        layoutManager.ensureGlyphs(forCharacterRange: characterRange)
+        layoutManager.ensureLayout(forCharacterRange: characterRange)
+        let glyphRange = layoutManager.glyphRange(
+            forCharacterRange: characterRange,
+            actualCharacterRange: nil
+        )
+        let glyphRect = layoutManager.boundingRect(forGlyphRange: glyphRange, in: textContainer)
+        let target = NSPoint(
+            x: scrollView.contentView.bounds.minX,
+            y: max(0, glyphRect.minY + textView.textContainerOrigin.y)
+        )
+        scrollView.contentView.scroll(to: target)
+        scrollView.reflectScrolledClipView(scrollView.contentView)
+    }
+
     private func startInitialHighlighting(for text: String) {
         highlightGeneration &+= 1
         let generation = highlightGeneration

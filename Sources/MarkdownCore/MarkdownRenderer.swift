@@ -253,11 +253,15 @@ public enum MarkdownRenderer {
                         return 'AROPYTMATHSEGMENT' + index + 'END';
                     }
 
-                    function stashMath(segment, display) {
+                    function stashMath(segment, display, sourceStart, protectedStart) {
                         var key = mathKey(protectedMathSegments.length);
                         protectedMathSegments.push({
                             segment: segment,
-                            display: display
+                            display: display,
+                            sourceStart: sourceStart,
+                            sourceEnd: sourceStart + segment.length,
+                            protectedStart: protectedStart,
+                            protectedEnd: protectedStart + key.length
                         });
                         return key;
                     }
@@ -290,7 +294,12 @@ public enum MarkdownRenderer {
                             if (markdown.startsWith('$$', i)) {
                                 var displayDollarEnd = markdown.indexOf('$$', i + 2);
                                 if (displayDollarEnd !== -1) {
-                                    output += stashMath(markdown.slice(i, displayDollarEnd + 2), true);
+                                    output += stashMath(
+                                        markdown.slice(i, displayDollarEnd + 2),
+                                        true,
+                                        i,
+                                        output.length
+                                    );
                                     i = displayDollarEnd + 2;
                                     continue;
                                 }
@@ -299,7 +308,12 @@ public enum MarkdownRenderer {
                             if (markdown.charCodeAt(i) === 92 && markdown.charAt(i + 1) === '[') {
                                 var displayBracketEnd = findBackslashDelimitedEnd(markdown, i + 2, ']');
                                 if (displayBracketEnd !== -1) {
-                                    output += stashMath(markdown.slice(i, displayBracketEnd), true);
+                                    output += stashMath(
+                                        markdown.slice(i, displayBracketEnd),
+                                        true,
+                                        i,
+                                        output.length
+                                    );
                                     i = displayBracketEnd;
                                     continue;
                                 }
@@ -308,7 +322,12 @@ public enum MarkdownRenderer {
                             if (markdown.charCodeAt(i) === 92 && markdown.charAt(i + 1) === '(') {
                                 var inlineParenEnd = findBackslashDelimitedEnd(markdown, i + 2, ')');
                                 if (inlineParenEnd !== -1) {
-                                    output += stashMath(markdown.slice(i, inlineParenEnd), false);
+                                    output += stashMath(
+                                        markdown.slice(i, inlineParenEnd),
+                                        false,
+                                        i,
+                                        output.length
+                                    );
                                     i = inlineParenEnd;
                                     continue;
                                 }
@@ -320,7 +339,12 @@ public enum MarkdownRenderer {
                                 && markdown.charAt(i + 1) !== ' ') {
                                 var inlineDollarEnd = findInlineDollarEnd(markdown, i + 1);
                                 if (inlineDollarEnd !== -1 && markdown.charAt(inlineDollarEnd - 2) !== ' ') {
-                                    output += stashMath(markdown.slice(i, inlineDollarEnd), false);
+                                    output += stashMath(
+                                        markdown.slice(i, inlineDollarEnd),
+                                        false,
+                                        i,
+                                        output.length
+                                    );
                                     i = inlineDollarEnd;
                                     continue;
                                 }
@@ -330,6 +354,24 @@ public enum MarkdownRenderer {
                             i += 1;
                         }
                         return output;
+                    }
+
+                    function originalOffsetForProtectedOffset(offset) {
+                        var delta = 0;
+                        for (var i = 0; i < protectedMathSegments.length; i++) {
+                            var record = protectedMathSegments[i];
+                            if (offset < record.protectedStart) return offset + delta;
+                            if (offset <= record.protectedEnd) {
+                                var protectedLength = record.protectedEnd - record.protectedStart;
+                                var sourceLength = record.sourceEnd - record.sourceStart;
+                                if (protectedLength <= 0) return record.sourceStart;
+                                var fraction = (offset - record.protectedStart) / protectedLength;
+                                return Math.round(record.sourceStart + sourceLength * fraction);
+                            }
+                            delta += (record.sourceEnd - record.sourceStart)
+                                - (record.protectedEnd - record.protectedStart);
+                        }
+                        return offset + delta;
                     }
 
                     function escapeHtmlText(value) {
@@ -470,6 +512,10 @@ public enum MarkdownRenderer {
                             diagram.className = 'mermaid aropyt-mermaid';
                             diagram.setAttribute('contenteditable', 'false');
                             diagram.setAttribute('data-mermaid-source', source);
+                            ['data-aropyt-source-start', 'data-aropyt-source-end'].forEach(function(name) {
+                                var value = pre.getAttribute(name);
+                                if (value !== null) diagram.setAttribute(name, value);
+                            });
                             diagram.textContent = source;
                             pre.replaceWith(diagram);
                             diagrams.push(diagram);
@@ -491,6 +537,42 @@ public enum MarkdownRenderer {
                         return textEncoder ? textEncoder.encode(tokenRaw).length : tokenRaw.length;
                     }
 
+                    function assignTokenSourceRanges(tokens) {
+                        var protectedOffset = 0;
+                        tokens.forEach(function(token) {
+                            var tokenRaw = token && token.raw ? token.raw : '';
+                            token._aropytSourceStart = originalOffsetForProtectedOffset(protectedOffset);
+                            protectedOffset += tokenRaw.length;
+                            token._aropytSourceEnd = originalOffsetForProtectedOffset(protectedOffset);
+                        });
+                    }
+
+                    function annotateRenderedBlocks(root, tokens) {
+                        var blockTokens = tokens.filter(function(token) {
+                            return token && token.type !== 'space' && token.type !== 'def';
+                        });
+                        var elements = Array.prototype.slice.call(root.children || []);
+                        if (blockTokens.length === 0 || elements.length === 0) return;
+
+                        elements.forEach(function(element, index) {
+                            var firstTokenIndex = Math.floor(index * blockTokens.length / elements.length);
+                            var lastTokenIndex = Math.max(
+                                firstTokenIndex,
+                                Math.ceil((index + 1) * blockTokens.length / elements.length) - 1
+                            );
+                            var firstToken = blockTokens[Math.min(firstTokenIndex, blockTokens.length - 1)];
+                            var lastToken = blockTokens[Math.min(lastTokenIndex, blockTokens.length - 1)];
+                            element.setAttribute(
+                                'data-aropyt-source-start',
+                                String(firstToken._aropytSourceStart || 0)
+                            );
+                            element.setAttribute(
+                                'data-aropyt-source-end',
+                                String(lastToken._aropytSourceEnd || firstToken._aropytSourceStart || 0)
+                            );
+                        });
+                    }
+
                     function processRenderedRoot(root) {
                         renderMath(root);
                         prepareMermaidDiagrams(root);
@@ -507,6 +589,7 @@ public enum MarkdownRenderer {
                         var wrapper = document.createElement('div');
                         wrapper.className = 'aropyt-render-batch';
                         wrapper.innerHTML = restoreMathSegments(marked.parser(tokens));
+                        annotateRenderedBlocks(wrapper, tokens);
                         content.appendChild(wrapper);
                         processRenderedRoot(wrapper);
                     }
@@ -569,6 +652,72 @@ public enum MarkdownRenderer {
                         notifyPreviewReady();
                     }
 
+                    function viewportAnchorElements() {
+                        return Array.prototype.filter.call(content.children, function(element) {
+                            return element.hasAttribute('data-aropyt-source-start');
+                        });
+                    }
+
+                    function sourceRangeForElement(element) {
+                        return {
+                            start: Number(element.getAttribute('data-aropyt-source-start')) || 0,
+                            end: Number(element.getAttribute('data-aropyt-source-end')) || 0
+                        };
+                    }
+
+                    function viewportReferenceY() {
+                        return 24;
+                    }
+
+                    window.aropytViewportSourceOffset = function() {
+                        var anchors = viewportAnchorElements();
+                        if (anchors.length === 0) return 0;
+                        var referenceY = viewportReferenceY();
+                        var candidate = anchors[0];
+
+                        for (var i = 0; i < anchors.length; i++) {
+                            var rect = anchors[i].getBoundingClientRect();
+                            if (rect.top <= referenceY) candidate = anchors[i];
+                            if (rect.bottom > referenceY) {
+                                if (rect.top <= referenceY) candidate = anchors[i];
+                                break;
+                            }
+                        }
+
+                        var candidateRect = candidate.getBoundingClientRect();
+                        var range = sourceRangeForElement(candidate);
+                        if (candidateRect.height <= 0 || range.end <= range.start) return range.start;
+                        var fraction = Math.max(
+                            0,
+                            Math.min(1, (referenceY - candidateRect.top) / candidateRect.height)
+                        );
+                        return Math.round(range.start + (range.end - range.start) * fraction);
+                    };
+
+                    window.aropytScrollToSourceOffset = function(requestedOffset) {
+                        var anchors = viewportAnchorElements();
+                        if (anchors.length === 0) return false;
+                        var offset = Math.max(0, Math.min(raw.length, Number(requestedOffset) || 0));
+                        var candidate = anchors[0];
+                        var range = sourceRangeForElement(candidate);
+
+                        for (var i = 0; i < anchors.length; i++) {
+                            var nextRange = sourceRangeForElement(anchors[i]);
+                            candidate = anchors[i];
+                            range = nextRange;
+                            if (offset <= nextRange.end) break;
+                        }
+
+                        var rect = candidate.getBoundingClientRect();
+                        var fraction = range.end > range.start
+                            ? Math.max(0, Math.min(1, (offset - range.start) / (range.end - range.start)))
+                            : 0;
+                        var documentY = window.scrollY + rect.top + rect.height * fraction;
+                        var maximumY = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+                        window.scrollTo(0, Math.max(0, Math.min(maximumY, documentY - viewportReferenceY())));
+                        return true;
+                    };
+
                     // Used by integration verification for documents without
                     // post-processing mutations. It does not participate in the
                     // render path and therefore cannot delay first paint.
@@ -577,7 +726,12 @@ public enum MarkdownRenderer {
                         var savedSegments = protectedMathSegments;
                         var expected = restoreMathSegments(marked.parse(protectMathSegments(raw)));
                         protectedMathSegments = savedSegments;
-                        return content.innerHTML === expected;
+                        var clone = content.cloneNode(true);
+                        clone.querySelectorAll('[data-aropyt-source-start]').forEach(function(element) {
+                            element.removeAttribute('data-aropyt-source-start');
+                            element.removeAttribute('data-aropyt-source-end');
+                        });
+                        return clone.innerHTML === expected;
                     };
 
                     function scheduleIdle(callback) {
@@ -620,14 +774,16 @@ public enum MarkdownRenderer {
                             mangle: false
                         });
                         var protectedMarkdown = protectMathSegments(raw);
+                        allTokens = marked.lexer(protectedMarkdown);
+                        assignTokenSourceRanges(allTokens);
                         if (!isLongDocument) {
-                            content.innerHTML = restoreMathSegments(marked.parse(protectedMarkdown));
+                            content.innerHTML = restoreMathSegments(marked.parser(allTokens));
+                            annotateRenderedBlocks(content, allTokens);
                             processRenderedRoot(content);
                             finishRendering();
                             return;
                         }
 
-                        allTokens = marked.lexer(protectedMarkdown);
                         nextTokenIndex = 0;
                         setProgress(formatProgress(0, allTokens.length));
                         postPreviewState('rendering', 0, allTokens.length);

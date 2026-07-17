@@ -294,6 +294,83 @@ struct PreviewIntegrationTests {
         #expect((try? String(contentsOf: fileURL, encoding: .utf8).contains("must stay in DOM")) != true)
     }
 
+    @Test func modeSwitchSynchronizesViewportInBothDirections() async throws {
+        _ = NSApplication.shared
+        let markdown = (0..<12_000)
+            .map { index in
+                let math = index.isMultiple(of: 400) ? " $x_{\(index)}$" : ""
+                return "## Viewport anchor \(index) — 中文 👋\(math)\n"
+            }
+            .joined()
+        #expect(LongDocumentPolicy.isLongDocument(markdown))
+
+        let document = MarkdownDocument()
+        document.text = markdown
+        let main = MainViewController()
+        main.document = document
+        _ = main.view
+        main.reloadFromDocument()
+        guard let preview = main.children.compactMap({ $0 as? PreviewViewController }).first else {
+            throw IntegrationError.missingPreviewController
+        }
+        try await waitUntilReady(preview, timeout: .seconds(15))
+
+        let firstTarget = (markdown as NSString).range(of: "## Viewport anchor 7600").location
+        preview.scrollToSourceOffset(firstTarget)
+        try await waitForViewport(preview, near: firstTarget, tolerance: 180)
+
+        main.toggleMode(nil)
+        try await waitForCondition(timeout: .seconds(10)) { main.mode == .source }
+        guard let source = main.children.compactMap({ $0 as? SourceViewController }).first else {
+            throw IntegrationError.missingSourceController
+        }
+        try await waitForSourceViewport(source, near: firstTarget, tolerance: 180)
+
+        let secondTarget = (markdown as NSString).range(of: "## Viewport anchor 2400").location
+        source.scrollToSourceOffset(secondTarget)
+        try await waitForSourceViewport(source, near: secondTarget, tolerance: 180)
+
+        main.toggleMode(nil)
+        try await waitForCondition(timeout: .seconds(10)) { main.mode == .preview }
+        try await waitForViewport(preview, near: secondTarget, tolerance: 180)
+    }
+
+    @Test func ordinaryDocumentModeSwitchAlsoSynchronizesViewport() async throws {
+        _ = NSApplication.shared
+        let markdown = (0..<300)
+            .map { "## Ordinary viewport \($0) — 中文 👋\n" }
+            .joined()
+        #expect(!LongDocumentPolicy.isLongDocument(markdown))
+
+        let document = MarkdownDocument()
+        document.text = markdown
+        let main = MainViewController()
+        main.document = document
+        _ = main.view
+        main.reloadFromDocument()
+        guard let preview = main.children.compactMap({ $0 as? PreviewViewController }).first else {
+            throw IntegrationError.missingPreviewController
+        }
+        try await waitUntilReady(preview, timeout: .seconds(10))
+
+        let previewTarget = (markdown as NSString).range(of: "## Ordinary viewport 220").location
+        preview.scrollToSourceOffset(previewTarget)
+        try await waitForViewport(preview, near: previewTarget, tolerance: 120)
+        main.toggleMode(nil)
+        try await waitForCondition(timeout: .seconds(5)) { main.mode == .source }
+        guard let source = main.children.compactMap({ $0 as? SourceViewController }).first else {
+            throw IntegrationError.missingSourceController
+        }
+        try await waitForSourceViewport(source, near: previewTarget, tolerance: 120)
+
+        let sourceTarget = (markdown as NSString).range(of: "## Ordinary viewport 80").location
+        source.scrollToSourceOffset(sourceTarget)
+        try await waitForSourceViewport(source, near: sourceTarget, tolerance: 120)
+        main.toggleMode(nil)
+        try await waitForCondition(timeout: .seconds(5)) { main.mode == .preview }
+        try await waitForViewport(preview, near: sourceTarget, tolerance: 120)
+    }
+
     private func waitForFirstBatch(_ controller: PreviewViewController,
                                    started: ContinuousClock.Instant) async throws -> Duration {
         while started.duration(to: .now) < .seconds(10) {
@@ -395,6 +472,37 @@ struct PreviewIntegrationTests {
         return false
     }
 
+    private func waitForViewport(_ preview: PreviewViewController,
+                                 near expectedOffset: Int,
+                                 tolerance: Int) async throws {
+        let clock = ContinuousClock()
+        let started = clock.now
+        while started.duration(to: clock.now) < .seconds(5) {
+            let offset = await withCheckedContinuation { continuation in
+                preview.viewportSourceOffset { continuation.resume(returning: $0) }
+            }
+            if let offset, abs(offset - expectedOffset) <= tolerance { return }
+            try await Task.sleep(for: .milliseconds(30))
+        }
+        throw IntegrationError.timeout("preview viewport near \(expectedOffset)")
+    }
+
+    private func waitForSourceViewport(_ source: SourceViewController,
+                                       near expectedOffset: Int,
+                                       tolerance: Int) async throws {
+        let clock = ContinuousClock()
+        let started = clock.now
+        var lastOffset = source.viewportSourceOffset()
+        while started.duration(to: clock.now) < .seconds(5) {
+            lastOffset = source.viewportSourceOffset()
+            if abs(lastOffset - expectedOffset) <= tolerance { return }
+            try await Task.sleep(for: .milliseconds(30))
+        }
+        throw IntegrationError.timeout(
+            "source viewport near \(expectedOffset); last offset \(lastOffset)"
+        )
+    }
+
     private func makeLongDocumentEditor(markdown: String,
                                         fileURL: URL) async throws
         -> (MarkdownDocument, MainViewController, PreviewViewController) {
@@ -440,5 +548,6 @@ struct PreviewIntegrationTests {
         case timeout(String)
         case invalidJavaScriptResult
         case missingPreviewController
+        case missingSourceController
     }
 }

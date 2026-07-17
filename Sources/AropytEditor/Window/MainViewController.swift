@@ -27,6 +27,7 @@ final class MainViewController: NSViewController, NSMenuItemValidation {
         }
     }
     private var preparationCompletions: [(Bool) -> Void] = []
+    private var isSwitchingMode = false
 
     var onBusyStateChanged: ((Bool) -> Void)?
 
@@ -115,10 +116,11 @@ final class MainViewController: NSViewController, NSMenuItemValidation {
     // MARK: - Mode switch
 
     @IBAction func toggleMode(_ sender: Any?) {
-        guard !isPreparingForDiskWrite else { return }
+        guard !isPreparingForDiskWrite, !isSwitchingMode else { return }
         switch mode {
         case .source:
-            switchTo(.preview)
+            let sourceOffset = sourceVC.viewportSourceOffset()
+            switchTo(.preview, sourceOffset: sourceOffset)
         case .preview:
             requestSwitchToSource()
         }
@@ -126,22 +128,48 @@ final class MainViewController: NSViewController, NSMenuItemValidation {
 
     private func requestSwitchToSource() {
         guard mode == .preview else { return }
-        guard previewVC?.isDirty == true else {
-            switchTo(.source)
+        guard let previewVC else {
+            switchTo(.source, sourceOffset: nil)
             return
         }
-        prepareForDiskWrite { [weak self] succeeded in
-            guard let self, succeeded else { return }
-            self.switchTo(.source)
+
+        isSwitchingMode = true
+        previewVC.viewportSourceOffset { [weak self] sourceOffset in
+            guard let self, self.mode == .preview else {
+                self?.isSwitchingMode = false
+                return
+            }
+            self.finishSwitchingToSource(sourceOffset: sourceOffset)
+        }
+    }
+
+    private func finishSwitchingToSource(sourceOffset: Int?) {
+        let performSwitch = { [weak self] in
+            guard let self else { return }
+            self.switchTo(.source, sourceOffset: sourceOffset)
+            self.isSwitchingMode = false
             if AutoSavePreferences.shared.mode == .never,
                let document = self.document,
                document.fileURL != nil {
                 document.saveThroughCoordinator { _ in }
             }
         }
+
+        guard previewVC?.isDirty == true else {
+            performSwitch()
+            return
+        }
+        prepareForDiskWrite { [weak self] succeeded in
+            guard let self else { return }
+            guard succeeded else {
+                self.isSwitchingMode = false
+                return
+            }
+            performSwitch()
+        }
     }
 
-    private func switchTo(_ newMode: Mode) {
+    private func switchTo(_ newMode: Mode, sourceOffset: Int?) {
         guard newMode != mode else { return }
         // 离开源码 → 把当前文本同步进 document
         if mode == .source, let doc = self.document {
@@ -160,10 +188,16 @@ final class MainViewController: NSViewController, NSMenuItemValidation {
             if let doc = self.document {
                 sourceVC.setText(doc.text)
             }
+            if let sourceOffset {
+                sourceVC.scrollToSourceOffset(sourceOffset)
+            }
         case .preview:
             embedPreview()
             if let doc = self.document {
                 previewVC?.load(markdown: doc.text)
+            }
+            if let sourceOffset {
+                previewVC?.scrollToSourceOffset(sourceOffset)
             }
         }
     }
@@ -313,7 +347,7 @@ final class MainViewController: NSViewController, NSMenuItemValidation {
             menuItem.title = (mode == .source)
                 ? L10n.tr("menu.view.switch_to_preview", "Switch to Preview")
                 : L10n.tr("menu.view.switch_to_source", "Switch to Source")
-            return !isPreparingForDiskWrite
+            return !isPreparingForDiskWrite && !isSwitchingMode
         }
         if menuItem.action == #selector(applyBold(_:)) || menuItem.action == #selector(applyItalic(_:)) {
             return mode == .preview && !isPreparingForDiskWrite
