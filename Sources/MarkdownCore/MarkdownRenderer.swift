@@ -8,6 +8,11 @@ public struct PreviewRenderConfiguration: Sendable {
     public var convertingText: String
     public var autoSaveWarningText: String
     public var showsAutoSaveWarning: Bool
+    public var mermaidZoomOutText: String
+    public var mermaidZoomInText: String
+    public var mermaidResetText: String
+    public var mermaidExportText: String
+    public var mermaidPanText: String
 
     public init(isLongDocument: Bool,
                 generation: Int = 1,
@@ -15,7 +20,12 @@ public struct PreviewRenderConfiguration: Sendable {
                 completeText: String = "Preview complete",
                 convertingText: String = "Converting preview edits…",
                 autoSaveWarningText: String = "On Change is active. Preview edits to this long document require repeated full-document conversion.",
-                showsAutoSaveWarning: Bool = false) {
+                showsAutoSaveWarning: Bool = false,
+                mermaidZoomOutText: String = "Zoom out",
+                mermaidZoomInText: String = "Zoom in",
+                mermaidResetText: String = "Reset view",
+                mermaidExportText: String = "Export SVG",
+                mermaidPanText: String = "Drag to pan the diagram") {
         self.isLongDocument = isLongDocument
         self.generation = generation
         self.progressText = progressText
@@ -23,6 +33,11 @@ public struct PreviewRenderConfiguration: Sendable {
         self.convertingText = convertingText
         self.autoSaveWarningText = autoSaveWarningText
         self.showsAutoSaveWarning = showsAutoSaveWarning
+        self.mermaidZoomOutText = mermaidZoomOutText
+        self.mermaidZoomInText = mermaidZoomInText
+        self.mermaidResetText = mermaidResetText
+        self.mermaidExportText = mermaidExportText
+        self.mermaidPanText = mermaidPanText
     }
 }
 
@@ -56,6 +71,11 @@ public enum MarkdownRenderer {
         let completeText = jsStringLiteral(configuration.completeText)
         let convertingText = jsStringLiteral(configuration.convertingText)
         let autoSaveWarningText = jsStringLiteral(configuration.autoSaveWarningText)
+        let mermaidZoomOutText = jsStringLiteral(configuration.mermaidZoomOutText)
+        let mermaidZoomInText = jsStringLiteral(configuration.mermaidZoomInText)
+        let mermaidResetText = jsStringLiteral(configuration.mermaidResetText)
+        let mermaidExportText = jsStringLiteral(configuration.mermaidExportText)
+        let mermaidPanText = jsStringLiteral(configuration.mermaidPanText)
         return """
         <!DOCTYPE html>
         <html lang="en">
@@ -135,15 +155,85 @@ public enum MarkdownRenderer {
                     margin: 0;
                 }
                 .markdown-body .aropyt-mermaid {
+                    border: 1px solid rgba(110,118,129,0.28);
+                    border-radius: 8px;
                     display: flex;
-                    justify-content: center;
+                    flex-direction: column;
                     margin: 1em 0;
-                    padding: 8px 0;
-                    overflow-x: auto;
+                    overflow: hidden;
+                }
+                .aropyt-mermaid-toolbar {
+                    align-items: center;
+                    background: rgba(175,184,193,0.10);
+                    border-bottom: 1px solid rgba(110,118,129,0.24);
+                    display: flex;
+                    flex: 0 0 auto;
+                    gap: 5px;
+                    justify-content: flex-end;
+                    min-height: 30px;
+                    padding: 4px 6px;
+                }
+                .aropyt-mermaid-toolbar button {
+                    appearance: none;
+                    background: transparent;
+                    border: 1px solid rgba(110,118,129,0.35);
+                    border-radius: 5px;
+                    color: inherit;
+                    cursor: pointer;
+                    font: inherit;
+                    font-size: 12px;
+                    line-height: 20px;
+                    min-width: 26px;
+                    padding: 0 7px;
+                }
+                .aropyt-mermaid-toolbar button:hover:not(:disabled) {
+                    background: rgba(175,184,193,0.22);
+                }
+                .aropyt-mermaid-toolbar button:disabled {
+                    cursor: default;
+                    opacity: 0.4;
+                }
+                .aropyt-mermaid-zoom-value {
+                    font-size: 12px;
+                    min-width: 42px;
+                    text-align: center;
+                }
+                .aropyt-mermaid-viewport {
+                    cursor: grab;
+                    height: 220px;
+                    min-height: 180px;
+                    overflow: hidden;
+                    position: relative;
+                    touch-action: none;
+                    user-select: none;
+                }
+                .aropyt-mermaid-viewport.aropyt-is-panning { cursor: grabbing; }
+                .aropyt-mermaid-canvas {
+                    align-items: center;
+                    display: flex;
+                    height: 100%;
+                    justify-content: center;
+                    transform-origin: 50% 50%;
+                    width: 100%;
+                    will-change: transform;
+                }
+                .aropyt-mermaid-render-target {
+                    align-items: center;
+                    display: flex;
+                    height: 100%;
+                    justify-content: center;
+                    width: 100%;
                 }
                 .markdown-body .aropyt-mermaid svg {
-                    max-width: 100%;
                     height: auto;
+                    max-height: calc(100% - 24px);
+                    max-width: calc(100% - 24px);
+                }
+                @media (prefers-reduced-motion: no-preference) {
+                    .aropyt-mermaid-canvas { transition: transform 100ms ease-out; }
+                    .aropyt-mermaid-viewport.aropyt-is-panning .aropyt-mermaid-canvas {
+                        transition: none;
+                    }
                 }
                 #preview-status {
                     box-sizing: border-box;
@@ -175,6 +265,7 @@ public enum MarkdownRenderer {
                     #preview-status { color: #8c959f; }
                     #preview-warning { color: #d29922; }
                     #preview-error { color: #ff7b72; }
+                    .aropyt-mermaid-toolbar { background: rgba(110,118,129,0.14); }
                 }
             </style>
             <script src="marked.umd.js"></script>
@@ -205,6 +296,11 @@ public enum MarkdownRenderer {
                     var completeText = \(completeText);
                     var convertingText = \(convertingText);
                     var autoSaveWarningText = \(autoSaveWarningText);
+                    var mermaidZoomOutText = \(mermaidZoomOutText);
+                    var mermaidZoomInText = \(mermaidZoomInText);
+                    var mermaidResetText = \(mermaidResetText);
+                    var mermaidExportText = \(mermaidExportText);
+                    var mermaidPanText = \(mermaidPanText);
                     var showsAutoSaveWarning = \(configuration.showsAutoSaveWarning ? "true" : "false");
                     var renderCancelled = false;
                     var renderComplete = false;
@@ -436,6 +532,212 @@ public enum MarkdownRenderer {
 
                     var mermaidObserver = null;
                     var mermaidLoadPromise = null;
+                    var mermaidMinimumZoom = 0.5;
+                    var mermaidMaximumZoom = 5;
+                    var mermaidZoomStep = 0.25;
+
+                    function updateMermaidTransform(diagram) {
+                        var state = diagram._aropytMermaidState;
+                        if (!state) return;
+                        state.canvas.style.transform = 'translate(' + state.panX + 'px, '
+                            + state.panY + 'px) scale(' + state.zoom + ')';
+                        state.zoomValue.textContent = Math.round(state.zoom * 100) + '%';
+                        state.zoomOut.disabled = state.zoom <= mermaidMinimumZoom;
+                        state.zoomIn.disabled = state.zoom >= mermaidMaximumZoom;
+                        diagram.setAttribute('data-mermaid-zoom', String(state.zoom));
+                        diagram.setAttribute('data-mermaid-pan-x', String(state.panX));
+                        diagram.setAttribute('data-mermaid-pan-y', String(state.panY));
+                    }
+
+                    function setMermaidZoom(diagram, nextZoom) {
+                        var state = diagram._aropytMermaidState;
+                        if (!state) return;
+                        state.zoom = Math.max(
+                            mermaidMinimumZoom,
+                            Math.min(mermaidMaximumZoom, Math.round(nextZoom * 100) / 100)
+                        );
+                        updateMermaidTransform(diagram);
+                    }
+
+                    function resetMermaidView(diagram) {
+                        var state = diagram._aropytMermaidState;
+                        if (!state) return;
+                        state.zoom = 1;
+                        state.panX = 0;
+                        state.panY = 0;
+                        updateMermaidTransform(diagram);
+                    }
+
+                    function serializedMermaidSVG(diagram) {
+                        var svg = diagram.querySelector('.aropyt-mermaid-render-target svg');
+                        if (!svg) return '';
+                        var clone = svg.cloneNode(true);
+                        clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+                        clone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+                        return '<?xml version="1.0" encoding="UTF-8"?>\\n'
+                            + new XMLSerializer().serializeToString(clone);
+                    }
+
+                    function exportMermaidSVG(diagram) {
+                        var svg = serializedMermaidSVG(diagram);
+                        if (!svg) return;
+                        var diagrams = Array.prototype.slice.call(
+                            document.querySelectorAll('.aropyt-mermaid')
+                        );
+                        var index = Math.max(0, diagrams.indexOf(diagram)) + 1;
+                        if (window.webkit && window.webkit.messageHandlers
+                            && window.webkit.messageHandlers.exportMermaid) {
+                            window.webkit.messageHandlers.exportMermaid.postMessage({
+                                svg: svg,
+                                suggestedName: 'mermaid-diagram-' + index + '.svg'
+                            });
+                        }
+                    }
+
+                    function mermaidButton(action, text, label) {
+                        var button = document.createElement('button');
+                        button.type = 'button';
+                        button.setAttribute('data-mermaid-action', action);
+                        button.setAttribute('aria-label', label);
+                        button.title = label;
+                        button.textContent = text;
+                        return button;
+                    }
+
+                    function installMermaidInteraction(diagram) {
+                        var toolbar = document.createElement('div');
+                        toolbar.className = 'aropyt-mermaid-toolbar';
+                        toolbar.setAttribute('role', 'toolbar');
+
+                        var zoomOut = mermaidButton('zoom-out', '−', mermaidZoomOutText);
+                        var zoomValue = document.createElement('output');
+                        zoomValue.className = 'aropyt-mermaid-zoom-value';
+                        zoomValue.setAttribute('aria-live', 'polite');
+                        var zoomIn = mermaidButton('zoom-in', '+', mermaidZoomInText);
+                        var reset = mermaidButton('reset', '↺', mermaidResetText);
+                        var exportButton = mermaidButton('export-svg', 'SVG', mermaidExportText);
+                        exportButton.disabled = true;
+                        toolbar.append(zoomOut, zoomValue, zoomIn, reset, exportButton);
+
+                        var viewport = document.createElement('div');
+                        viewport.className = 'aropyt-mermaid-viewport';
+                        viewport.setAttribute('tabindex', '0');
+                        viewport.setAttribute('aria-label', mermaidPanText);
+                        viewport.title = mermaidPanText;
+                        var canvas = document.createElement('div');
+                        canvas.className = 'aropyt-mermaid-canvas';
+                        var renderTarget = document.createElement('div');
+                        renderTarget.className = 'mermaid aropyt-mermaid-render-target';
+                        renderTarget.textContent = diagram.getAttribute('data-mermaid-source') || '';
+                        canvas.appendChild(renderTarget);
+                        viewport.appendChild(canvas);
+                        diagram.append(toolbar, viewport);
+
+                        var state = {
+                            zoom: 1,
+                            panX: 0,
+                            panY: 0,
+                            panning: false,
+                            pointerX: 0,
+                            pointerY: 0,
+                            canvas: canvas,
+                            viewport: viewport,
+                            renderTarget: renderTarget,
+                            zoomOut: zoomOut,
+                            zoomValue: zoomValue,
+                            zoomIn: zoomIn,
+                            exportButton: exportButton
+                        };
+                        diagram._aropytMermaidState = state;
+                        updateMermaidTransform(diagram);
+
+                        zoomOut.addEventListener('click', function() {
+                            setMermaidZoom(diagram, state.zoom - mermaidZoomStep);
+                        });
+                        zoomIn.addEventListener('click', function() {
+                            setMermaidZoom(diagram, state.zoom + mermaidZoomStep);
+                        });
+                        reset.addEventListener('click', function() {
+                            resetMermaidView(diagram);
+                        });
+                        exportButton.addEventListener('click', function() {
+                            exportMermaidSVG(diagram);
+                        });
+
+                        viewport.addEventListener('pointerdown', function(event) {
+                            if (event.button !== 0) return;
+                            state.panning = true;
+                            state.pointerX = event.clientX;
+                            state.pointerY = event.clientY;
+                            viewport.classList.add('aropyt-is-panning');
+                            try { viewport.setPointerCapture(event.pointerId); } catch (_) {}
+                        });
+                        viewport.addEventListener('pointermove', function(event) {
+                            if (!state.panning) return;
+                            state.panX += event.clientX - state.pointerX;
+                            state.panY += event.clientY - state.pointerY;
+                            state.pointerX = event.clientX;
+                            state.pointerY = event.clientY;
+                            updateMermaidTransform(diagram);
+                            event.preventDefault();
+                        });
+                        function finishPan() {
+                            state.panning = false;
+                            viewport.classList.remove('aropyt-is-panning');
+                        }
+                        viewport.addEventListener('pointerup', finishPan);
+                        viewport.addEventListener('pointercancel', finishPan);
+                        viewport.addEventListener('lostpointercapture', finishPan);
+                        viewport.addEventListener('wheel', function(event) {
+                            if (!(event.ctrlKey || event.metaKey)) return;
+                            setMermaidZoom(
+                                diagram,
+                                state.zoom + (event.deltaY < 0 ? mermaidZoomStep : -mermaidZoomStep)
+                            );
+                            event.preventDefault();
+                        }, { passive: false });
+                        viewport.addEventListener('keydown', function(event) {
+                            var handled = true;
+                            if (event.key === 'ArrowLeft') state.panX -= 24;
+                            else if (event.key === 'ArrowRight') state.panX += 24;
+                            else if (event.key === 'ArrowUp') state.panY -= 24;
+                            else if (event.key === 'ArrowDown') state.panY += 24;
+                            else if (event.key === '+' || event.key === '=') {
+                                setMermaidZoom(diagram, state.zoom + mermaidZoomStep);
+                            } else if (event.key === '-') {
+                                setMermaidZoom(diagram, state.zoom - mermaidZoomStep);
+                            } else if (event.key === '0') {
+                                resetMermaidView(diagram);
+                            } else {
+                                handled = false;
+                            }
+                            if (handled) {
+                                updateMermaidTransform(diagram);
+                                event.preventDefault();
+                            }
+                        });
+                    }
+
+                    function finishMermaidRendering(diagrams) {
+                        diagrams.forEach(function(diagram) {
+                            var state = diagram._aropytMermaidState;
+                            if (!state) return;
+                            var svg = state.renderTarget.querySelector('svg');
+                            if (!svg) return;
+                            var viewBox = svg.viewBox && svg.viewBox.baseVal;
+                            var availableWidth = Math.max(1, state.viewport.clientWidth - 24);
+                            var fittedHeight = svg.getBoundingClientRect().height;
+                            if (viewBox && viewBox.width > 0 && viewBox.height > 0) {
+                                fittedHeight = viewBox.height * Math.min(1, availableWidth / viewBox.width);
+                            }
+                            state.viewport.style.height = Math.max(
+                                180,
+                                Math.min(640, Math.ceil(fittedHeight + 24))
+                            ) + 'px';
+                            state.exportButton.disabled = false;
+                            updateMermaidTransform(diagram);
+                        });
+                    }
 
                     function renderMermaid(diagrams) {
                         if (!isCurrentRender() || diagrams.length === 0 || !window.mermaid) return;
@@ -449,13 +751,19 @@ public enum MarkdownRenderer {
                                 theme: isDark ? 'dark' : 'default'
                             });
                             var result = mermaid.run({
-                                nodes: diagrams,
+                                nodes: diagrams.map(function(diagram) {
+                                    return diagram._aropytMermaidState.renderTarget;
+                                }),
                                 suppressErrors: true
                             });
-                            if (result && typeof result.catch === 'function') {
-                                result.catch(function(error) {
+                            if (result && typeof result.then === 'function') {
+                                result.then(function() {
+                                    finishMermaidRendering(diagrams);
+                                }).catch(function(error) {
                                     console.error('mermaid render failed:', error);
                                 });
+                            } else {
+                                finishMermaidRendering(diagrams);
                             }
                         } catch (e) {
                             console.error('mermaid render failed:', e);
@@ -509,14 +817,14 @@ public enum MarkdownRenderer {
                             if (source.endsWith('\\n')) source = source.slice(0, -1);
 
                             var diagram = document.createElement('div');
-                            diagram.className = 'mermaid aropyt-mermaid';
+                            diagram.className = 'aropyt-mermaid';
                             diagram.setAttribute('contenteditable', 'false');
                             diagram.setAttribute('data-mermaid-source', source);
                             ['data-aropyt-source-start', 'data-aropyt-source-end'].forEach(function(name) {
                                 var value = pre.getAttribute(name);
                                 if (value !== null) diagram.setAttribute(name, value);
                             });
-                            diagram.textContent = source;
+                            installMermaidInteraction(diagram);
                             pre.replaceWith(diagram);
                             diagrams.push(diagram);
                             if (mermaidObserver) {

@@ -36,12 +36,14 @@ struct MarkdownRendererTests {
             isLongDocument: true,
             progressText: #"进度 </script> %d / %d"#,
             autoSaveWarningText: #"警告 </script>"#,
-            showsAutoSaveWarning: true
+            showsAutoSaveWarning: true,
+            mermaidExportText: #"导出 </script>"#
         )
         let html = MarkdownRenderer.htmlDocument(for: "text", configuration: configuration)
 
         #expect(!html.contains(#"进度 </script>"#))
         #expect(html.contains(#"进度 \u003C\/script\u003E %d \/ %d"#))
+        #expect(html.contains(#"导出 \u003C\/script\u003E"#))
         #expect(html.contains("var showsAutoSaveWarning = true"))
     }
 

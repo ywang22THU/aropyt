@@ -1,6 +1,7 @@
 import AppKit
 import WebKit
 import MarkdownCore
+import UniformTypeIdentifiers
 
 /// 预览模式：WKWebView 渲染 + 可编辑（contenteditable）+ 格式化命令。
 ///
@@ -48,13 +49,14 @@ final class PreviewViewController: NSViewController, WKNavigationDelegate, WKScr
     /// 用户在预览中编辑触发的 markdown 更新回调
     var onMarkdownEdited: ((String) -> Void)?
     var onDirtyStateChanged: ((Bool) -> Void)?
+    var onMermaidExportRequested: ((String, String) -> Void)?
 
     override func loadView() {
         let config = WKWebViewConfiguration()
         config.preferences.javaScriptCanOpenWindowsAutomatically = false
         let userContent = WKUserContentController()
         for name in ["markdownChanged", "openLink", "previewReady", "previewDirty",
-                     "previewFlushResult", "previewState"] {
+                     "previewFlushResult", "previewState", "exportMermaid"] {
             userContent.add(WeakScriptMessageHandler(delegate: self), name: name)
         }
         config.userContentController = userContent
@@ -88,7 +90,7 @@ final class PreviewViewController: NSViewController, WKNavigationDelegate, WKScr
         NotificationCenter.default.removeObserver(self)
         if let webView {
             for name in ["markdownChanged", "openLink", "previewReady", "previewDirty",
-                         "previewFlushResult", "previewState"] {
+                         "previewFlushResult", "previewState", "exportMermaid"] {
                 webView.configuration.userContentController.removeScriptMessageHandler(forName: name)
             }
         }
@@ -129,7 +131,12 @@ final class PreviewViewController: NSViewController, WKNavigationDelegate, WKScr
                 "preview.autosave.on_change_warning",
                 "On Change is active. Preview edits to this long document require repeated full-document conversion."
             ),
-            showsAutoSaveWarning: AutoSavePreferences.shared.mode == .onChange
+            showsAutoSaveWarning: AutoSavePreferences.shared.mode == .onChange,
+            mermaidZoomOutText: L10n.tr("preview.mermaid.zoom_out", "Zoom out"),
+            mermaidZoomInText: L10n.tr("preview.mermaid.zoom_in", "Zoom in"),
+            mermaidResetText: L10n.tr("preview.mermaid.reset", "Reset view"),
+            mermaidExportText: L10n.tr("preview.mermaid.export_svg", "Export SVG"),
+            mermaidPanText: L10n.tr("preview.mermaid.pan", "Drag to pan the diagram")
         )
         let html = MarkdownRenderer.htmlDocument(for: markdown, configuration: configuration)
         let baseURL = PreviewResourceSchemeHandler.baseURL
@@ -322,6 +329,58 @@ final class PreviewViewController: NSViewController, WKNavigationDelegate, WKScr
         return json
     }
 
+    private func handleMermaidExport(svg: String, suggestedName: String) {
+        guard svg.contains("<svg") else { return }
+
+        let safeName = URL(fileURLWithPath: suggestedName).lastPathComponent
+        let fallbackName = safeName.isEmpty ? "mermaid-diagram.svg" : safeName
+        let exportName = fallbackName.lowercased().hasSuffix(".svg")
+            ? fallbackName
+            : fallbackName + ".svg"
+        if let onMermaidExportRequested {
+            onMermaidExportRequested(svg, exportName)
+            return
+        }
+
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.svg]
+        panel.canCreateDirectories = true
+        panel.isExtensionHidden = false
+        panel.nameFieldStringValue = exportName
+        let completion: (NSApplication.ModalResponse) -> Void = { [weak self] response in
+            guard response == .OK, let url = panel.url else { return }
+            do {
+                try svg.write(to: url, atomically: true, encoding: .utf8)
+            } catch {
+                self?.showMermaidExportError(error)
+            }
+        }
+        if let window = view.window {
+            panel.beginSheetModal(for: window, completionHandler: completion)
+        } else {
+            panel.begin(completionHandler: completion)
+        }
+    }
+
+    private func showMermaidExportError(_ error: Error) {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = L10n.tr(
+            "preview.mermaid.export_error.title",
+            "Could Not Export SVG"
+        )
+        alert.informativeText = L10n.tr(
+            "preview.mermaid.export_error.body",
+            "The Mermaid diagram could not be saved: %@",
+            error.localizedDescription
+        )
+        if let window = view.window {
+            alert.beginSheetModal(for: window)
+        } else {
+            alert.runModal()
+        }
+    }
+
     // MARK: - WKScriptMessageHandler
 
     func userContentController(_ userContentController: WKUserContentController,
@@ -336,6 +395,13 @@ final class PreviewViewController: NSViewController, WKNavigationDelegate, WKScr
             guard let s = message.body as? String,
                   let url = URL(string: s) else { return }
             NSWorkspace.shared.open(url)
+        case "exportMermaid":
+            guard
+                let body = message.body as? [String: Any],
+                let svg = body["svg"] as? String,
+                let suggestedName = body["suggestedName"] as? String
+            else { return }
+            handleMermaidExport(svg: svg, suggestedName: suggestedName)
         case "previewReady":
             if let body = message.body as? [String: Any],
                let generation = body["generation"] as? Int,

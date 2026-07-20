@@ -11,7 +11,7 @@ macOS 上的本地 Markdown 编辑器，使用 Swift + AppKit 开发，纯 Swift
 -   **预览模式**：基于 `WKWebView` + 本地 `marked.js` + `highlight.js`，支持完整 CommonMark/GFM
     -   粗体、斜体、删除线、列表、标题、代码块（带语法高亮）、表格、图片、链接、引用块、HR 等
     -   数学公式：支持 `$...$`、`$$...$$`、`\\(...\\)`、`\\[...\\]`，基于本地 KaTeX 离线渲染
-    -   Mermaid 图表：将 `mermaid` fenced code block 渲染为图表，基于本地 Mermaid 离线渲染
+    -   Mermaid 图表：本地离线渲染，支持 50%–500% 缩放、拖动平移和 SVG 导出
 -   工具栏一键切换源码 / 预览模式
 -   预览模式下的所见即所得编辑（基于 contenteditable + turndown 反向生成 markdown）
 -   预览模式 Cmd+点击 链接由系统浏览器打开

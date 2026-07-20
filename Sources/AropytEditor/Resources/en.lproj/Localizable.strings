@@ -88,6 +88,13 @@
 "preview.flush.error" = "Could not convert Preview edits back to Markdown. Your edits remain in Preview and the older Markdown was not saved.";
 "preview.flush.error_with_reason" = "Could not convert Preview edits back to Markdown: %@. Your edits remain in Preview and the older Markdown was not saved.";
 "preview.flush.alert.title" = "Preview edits were not saved";
+"preview.mermaid.zoom_out" = "Zoom out";
+"preview.mermaid.zoom_in" = "Zoom in";
+"preview.mermaid.reset" = "Reset view";
+"preview.mermaid.export_svg" = "Export SVG";
+"preview.mermaid.pan" = "Drag to pan the diagram";
+"preview.mermaid.export_error.title" = "Could Not Export SVG";
+"preview.mermaid.export_error.body" = "The Mermaid diagram could not be saved: %@";
 
 "settings.shortcuts.hint" = "Click a shortcut and press the new key combination. Recording blocks other in-app shortcuts, and conflicting changes are not saved.";
 "settings.shortcuts.column.action" = "Action";

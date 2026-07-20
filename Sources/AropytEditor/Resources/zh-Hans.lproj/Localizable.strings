@@ -88,6 +88,13 @@
 "preview.flush.error" = "无法把预览编辑转换回 Markdown。编辑内容仍保留在预览中，旧 Markdown 未写入磁盘。";
 "preview.flush.error_with_reason" = "无法把预览编辑转换回 Markdown：%@。编辑内容仍保留在预览中，旧 Markdown 未写入磁盘。";
 "preview.flush.alert.title" = "预览编辑未保存";
+"preview.mermaid.zoom_out" = "缩小";
+"preview.mermaid.zoom_in" = "放大";
+"preview.mermaid.reset" = "重置视图";
+"preview.mermaid.export_svg" = "导出 SVG";
+"preview.mermaid.pan" = "拖动以平移图表";
+"preview.mermaid.export_error.title" = "无法导出 SVG";
+"preview.mermaid.export_error.body" = "无法保存 Mermaid 图表：%@";
 
 "settings.shortcuts.hint" = "点击快捷键并按下新的组合键。录制期间会拦截应用内其他快捷键，冲突的修改不会保存。";
 "settings.shortcuts.column.action" = "操作";

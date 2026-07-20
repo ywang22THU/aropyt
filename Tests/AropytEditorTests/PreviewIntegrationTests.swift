@@ -181,6 +181,99 @@ struct PreviewIntegrationTests {
         #expect(mermaidRendered)
     }
 
+    @Test func mermaidSupportsBoundedZoomPanAndSVGExport() async throws {
+        _ = NSApplication.shared
+        let markdown = """
+        ```mermaid
+        graph LR
+          Alpha --> Beta
+        ```
+        """
+        let controller = PreviewViewController()
+        var exportedSVG: String?
+        var exportedName: String?
+        var convertedMarkdown: String?
+        controller.onMermaidExportRequested = { svg, name in
+            exportedSVG = svg
+            exportedName = name
+        }
+        controller.onMarkdownEdited = { convertedMarkdown = $0 }
+        _ = controller.view
+        controller.load(markdown: markdown)
+        try await waitUntilReady(controller, timeout: .seconds(10))
+        let webView = controller.view as! WKWebView
+        let rendered = try await waitForJavaScriptBoolean(
+            "!!document.querySelector('.aropyt-mermaid svg')",
+            in: webView,
+            timeout: .seconds(10)
+        )
+        #expect(rendered)
+
+        let interaction = try await javaScriptString("""
+            (function() {
+                var diagram = document.querySelector('.aropyt-mermaid');
+                var zoomOut = diagram.querySelector('[data-mermaid-action="zoom-out"]');
+                var zoomIn = diagram.querySelector('[data-mermaid-action="zoom-in"]');
+                var reset = diagram.querySelector('[data-mermaid-action="reset"]');
+                var viewport = diagram.querySelector('.aropyt-mermaid-viewport');
+                for (var i = 0; i < 30; i += 1) zoomOut.click();
+                var minimum = diagram.getAttribute('data-mermaid-zoom');
+                var minimumDisabled = zoomOut.disabled;
+                for (var j = 0; j < 30; j += 1) zoomIn.click();
+                var maximum = diagram.getAttribute('data-mermaid-zoom');
+                var maximumDisabled = zoomIn.disabled;
+                viewport.dispatchEvent(new PointerEvent('pointerdown', {
+                    bubbles: true, pointerId: 7, clientX: 20, clientY: 30
+                }));
+                viewport.dispatchEvent(new PointerEvent('pointermove', {
+                    bubbles: true, pointerId: 7, clientX: 65, clientY: 80
+                }));
+                viewport.dispatchEvent(new PointerEvent('pointerup', {
+                    bubbles: true, pointerId: 7, clientX: 65, clientY: 80
+                }));
+                var panX = diagram.getAttribute('data-mermaid-pan-x');
+                var panY = diagram.getAttribute('data-mermaid-pan-y');
+                var panTransform = diagram.querySelector('.aropyt-mermaid-canvas').style.transform;
+                reset.click();
+                return [
+                    minimum,
+                    minimumDisabled,
+                    maximum,
+                    maximumDisabled,
+                    panX,
+                    panY,
+                    panTransform,
+                    diagram.getAttribute('data-mermaid-zoom'),
+                    diagram.getAttribute('data-mermaid-pan-x'),
+                    diagram.getAttribute('data-mermaid-pan-y'),
+                    diagram.querySelector('.aropyt-mermaid-zoom-value').textContent
+                ].join('|');
+            })();
+            """, in: webView)
+        #expect(
+            interaction == "0.5|true|5|true|45|50|translate(45px, 50px) scale(5)|1|0|0|100%",
+            "\(interaction)"
+        )
+
+        try await runJavaScript(
+            "document.querySelector('[data-mermaid-action=\"export-svg\"]').click();",
+            in: webView
+        )
+        try await waitForCondition(timeout: .seconds(2)) { exportedSVG != nil }
+        #expect(exportedName == "mermaid-diagram-1.svg")
+        #expect(exportedSVG?.hasPrefix("<?xml version=\"1.0\"") == true)
+        #expect(exportedSVG?.contains("<svg") == true)
+        #expect(exportedSVG?.contains("Alpha") == true)
+        #expect(exportedSVG?.contains("Beta") == true)
+
+        try await runJavaScript(
+            "document.getElementById('content').dispatchEvent(new Event('input', {bubbles:true}));",
+            in: webView
+        )
+        try await waitForCondition(timeout: .seconds(2)) { convertedMarkdown != nil }
+        #expect(convertedMarkdown?.contains("```mermaid\ngraph LR\n  Alpha --> Beta\n```") == true)
+    }
+
     @Test func switchingToSourceFlushesLongPreviewAndSavesInNeverMode() async throws {
         _ = NSApplication.shared
         let preferences = AutoSavePreferences.shared
