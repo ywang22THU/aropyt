@@ -95,7 +95,7 @@ swift run AropytEditor
 - `MarkdownRenderer.htmlDocument(for:configuration:)` 生成完整 HTML；Markdown 和本地化 payload 同时做 JSON 与 script 上下文转义。
 - 超长预览先 `marked.lexer`，首批最多 80 token / 64 KiB，后续按 12ms 预算空闲调度；渲染期间只读并显示进度，完成后恢复编辑。
 - 预览模式用本地 KaTeX 渲染数学公式，支持 `$...$`、`$$...$$`、`\\(...\\)`、`\\[...\\]`。进入 `marked.parse` 前会保护完整数学片段，避免 `_`、`<`、`&` 或 `\\[` 被 Markdown 解析破坏。
-- Mermaid 通过 `IntersectionObserver` 在接近视口时才加载脚本和渲染；每张图有独立工具栏和画布，支持 50%–500% 缩放、拖动平移、重置与 SVG 导出；`data-mermaid-source` 保留原始源码供 Turndown 回写。
+- Mermaid 通过 `IntersectionObserver` 在接近视口时才加载脚本和渲染；每张图有独立工具栏，直接调整 SVG `viewBox` 实现保持清晰的 50%–500% 矢量缩放与拖动平移，不使用 CSS transform 放大合成层；支持重置与 SVG 导出；`data-mermaid-source` 保留原始源码供 Turndown 回写。
 - 普通预览 input 继续实时 Turndown；超长预览只标 dirty，`flushPreviewEdits` 才执行全文转换。
 - `openLink` message handler 使用系统浏览器打开链接。
 - `previewReady` 标记 WebView 可接收格式化命令。
@@ -141,6 +141,7 @@ swift run AropytEditor
 
 最近一次已知验证：
 
+- 2026-07-20：Mermaid 缩放由 CSS transform 改为 SVG `viewBox` 后，Xcode toolchain `swift test --disable-sandbox` 全部 29 项通过；真实 WebKit 用例验证 500% 时 `viewBox` 为原始范围的 1/5、拖动修改 `viewBox` 坐标且画布无 CSS transform。
 - 2026-07-20：Xcode toolchain `swift test --disable-sandbox` 全部 29 项通过；新增真实 WebKit Mermaid 缩放边界、拖动、重置、SVG 导出与 Turndown 回写测试。
 - 2026-07-20：Xcode toolchain `swift build --disable-sandbox` 通过。
 - 2026-07-17：Xcode toolchain `swift test --disable-sandbox` 全部 28 项通过；新增普通/超长文档双向视窗同步测试，覆盖中文、emoji 与数学公式偏移。

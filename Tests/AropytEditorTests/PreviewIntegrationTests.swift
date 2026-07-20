@@ -181,7 +181,7 @@ struct PreviewIntegrationTests {
         #expect(mermaidRendered)
     }
 
-    @Test func mermaidSupportsBoundedZoomPanAndSVGExport() async throws {
+    @Test func mermaidUsesVectorViewBoxZoomPanAndSVGExport() async throws {
         _ = NSApplication.shared
         let markdown = """
         ```mermaid
@@ -216,12 +216,24 @@ struct PreviewIntegrationTests {
                 var zoomIn = diagram.querySelector('[data-mermaid-action="zoom-in"]');
                 var reset = diagram.querySelector('[data-mermaid-action="reset"]');
                 var viewport = diagram.querySelector('.aropyt-mermaid-viewport');
+                var canvas = diagram.querySelector('.aropyt-mermaid-canvas');
+                var svg = diagram.querySelector('svg');
+                function currentViewBox() {
+                    var box = svg.viewBox.baseVal;
+                    return {x: box.x, y: box.y, width: box.width, height: box.height};
+                }
+                function nearlyEqual(left, right) {
+                    return Math.abs(left - right) < 0.001;
+                }
+                var baseViewBox = currentViewBox();
                 for (var i = 0; i < 30; i += 1) zoomOut.click();
                 var minimum = diagram.getAttribute('data-mermaid-zoom');
                 var minimumDisabled = zoomOut.disabled;
+                var minimumViewBox = currentViewBox();
                 for (var j = 0; j < 30; j += 1) zoomIn.click();
                 var maximum = diagram.getAttribute('data-mermaid-zoom');
                 var maximumDisabled = zoomIn.disabled;
+                var maximumViewBox = currentViewBox();
                 viewport.dispatchEvent(new PointerEvent('pointerdown', {
                     bubbles: true, pointerId: 7, clientX: 20, clientY: 30
                 }));
@@ -233,27 +245,37 @@ struct PreviewIntegrationTests {
                 }));
                 var panX = diagram.getAttribute('data-mermaid-pan-x');
                 var panY = diagram.getAttribute('data-mermaid-pan-y');
-                var panTransform = diagram.querySelector('.aropyt-mermaid-canvas').style.transform;
+                var pannedViewBox = currentViewBox();
                 reset.click();
+                var resetViewBox = currentViewBox();
                 return [
-                    minimum,
+                    minimum === '0.5',
                     minimumDisabled,
-                    maximum,
+                    nearlyEqual(minimumViewBox.width, baseViewBox.width * 2)
+                        && nearlyEqual(minimumViewBox.height, baseViewBox.height * 2),
+                    maximum === '5',
                     maximumDisabled,
-                    panX,
-                    panY,
-                    panTransform,
-                    diagram.getAttribute('data-mermaid-zoom'),
-                    diagram.getAttribute('data-mermaid-pan-x'),
-                    diagram.getAttribute('data-mermaid-pan-y'),
-                    diagram.querySelector('.aropyt-mermaid-zoom-value').textContent
+                    nearlyEqual(maximumViewBox.width, baseViewBox.width / 5)
+                        && nearlyEqual(maximumViewBox.height, baseViewBox.height / 5),
+                    panX === '45',
+                    panY === '50',
+                    pannedViewBox.x < maximumViewBox.x,
+                    pannedViewBox.y < maximumViewBox.y,
+                    canvas.style.transform === ''
+                        && getComputedStyle(canvas).transform === 'none',
+                    diagram.getAttribute('data-mermaid-zoom') === '1',
+                    diagram.getAttribute('data-mermaid-pan-x') === '0'
+                        && diagram.getAttribute('data-mermaid-pan-y') === '0',
+                    nearlyEqual(resetViewBox.x, baseViewBox.x)
+                        && nearlyEqual(resetViewBox.y, baseViewBox.y)
+                        && nearlyEqual(resetViewBox.width, baseViewBox.width)
+                        && nearlyEqual(resetViewBox.height, baseViewBox.height),
+                    diagram.querySelector('.aropyt-mermaid-zoom-value').textContent === '100%'
                 ].join('|');
             })();
             """, in: webView)
-        #expect(
-            interaction == "0.5|true|5|true|45|50|translate(45px, 50px) scale(5)|1|0|0|100%",
-            "\(interaction)"
-        )
+        let expectedInteraction = Array(repeating: "true", count: 15).joined(separator: "|")
+        #expect(interaction == expectedInteraction, "\(interaction)")
 
         try await runJavaScript(
             "document.querySelector('[data-mermaid-action=\"export-svg\"]').click();",

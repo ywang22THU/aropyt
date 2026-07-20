@@ -213,9 +213,7 @@ public enum MarkdownRenderer {
                     display: flex;
                     height: 100%;
                     justify-content: center;
-                    transform-origin: 50% 50%;
                     width: 100%;
-                    will-change: transform;
                 }
                 .aropyt-mermaid-render-target {
                     align-items: center;
@@ -228,12 +226,8 @@ public enum MarkdownRenderer {
                     height: auto;
                     max-height: calc(100% - 24px);
                     max-width: calc(100% - 24px);
-                }
-                @media (prefers-reduced-motion: no-preference) {
-                    .aropyt-mermaid-canvas { transition: transform 100ms ease-out; }
-                    .aropyt-mermaid-viewport.aropyt-is-panning .aropyt-mermaid-canvas {
-                        transition: none;
-                    }
+                    shape-rendering: geometricPrecision;
+                    text-rendering: geometricPrecision;
                 }
                 #preview-status {
                     box-sizing: border-box;
@@ -536,11 +530,31 @@ public enum MarkdownRenderer {
                     var mermaidMaximumZoom = 5;
                     var mermaidZoomStep = 0.25;
 
-                    function updateMermaidTransform(diagram) {
+                    function mermaidViewBoxString(viewBox) {
+                        return [viewBox.x, viewBox.y, viewBox.width, viewBox.height].join(' ');
+                    }
+
+                    function updateMermaidViewport(diagram) {
                         var state = diagram._aropytMermaidState;
                         if (!state) return;
-                        state.canvas.style.transform = 'translate(' + state.panX + 'px, '
-                            + state.panY + 'px) scale(' + state.zoom + ')';
+                        if (state.svg && state.baseViewBox) {
+                            var visibleWidth = state.baseViewBox.width / state.zoom;
+                            var visibleHeight = state.baseViewBox.height / state.zoom;
+                            var svgRect = state.svg.getBoundingClientRect();
+                            var unitsPerPixelX = visibleWidth / Math.max(1, svgRect.width);
+                            var unitsPerPixelY = visibleHeight / Math.max(1, svgRect.height);
+                            var visibleViewBox = {
+                                x: state.baseViewBox.x
+                                    + (state.baseViewBox.width - visibleWidth) / 2
+                                    - state.panX * unitsPerPixelX,
+                                y: state.baseViewBox.y
+                                    + (state.baseViewBox.height - visibleHeight) / 2
+                                    - state.panY * unitsPerPixelY,
+                                width: visibleWidth,
+                                height: visibleHeight
+                            };
+                            state.svg.setAttribute('viewBox', mermaidViewBoxString(visibleViewBox));
+                        }
                         state.zoomValue.textContent = Math.round(state.zoom * 100) + '%';
                         state.zoomOut.disabled = state.zoom <= mermaidMinimumZoom;
                         state.zoomIn.disabled = state.zoom >= mermaidMaximumZoom;
@@ -556,7 +570,7 @@ public enum MarkdownRenderer {
                             mermaidMinimumZoom,
                             Math.min(mermaidMaximumZoom, Math.round(nextZoom * 100) / 100)
                         );
-                        updateMermaidTransform(diagram);
+                        updateMermaidViewport(diagram);
                     }
 
                     function resetMermaidView(diagram) {
@@ -565,13 +579,17 @@ public enum MarkdownRenderer {
                         state.zoom = 1;
                         state.panX = 0;
                         state.panY = 0;
-                        updateMermaidTransform(diagram);
+                        updateMermaidViewport(diagram);
                     }
 
                     function serializedMermaidSVG(diagram) {
                         var svg = diagram.querySelector('.aropyt-mermaid-render-target svg');
                         if (!svg) return '';
                         var clone = svg.cloneNode(true);
+                        var state = diagram._aropytMermaidState;
+                        if (state && state.baseViewBox) {
+                            clone.setAttribute('viewBox', mermaidViewBoxString(state.baseViewBox));
+                        }
                         clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
                         clone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
                         return '<?xml version="1.0" encoding="UTF-8"?>\\n'
@@ -649,7 +667,7 @@ public enum MarkdownRenderer {
                             exportButton: exportButton
                         };
                         diagram._aropytMermaidState = state;
-                        updateMermaidTransform(diagram);
+                        updateMermaidViewport(diagram);
 
                         zoomOut.addEventListener('click', function() {
                             setMermaidZoom(diagram, state.zoom - mermaidZoomStep);
@@ -678,7 +696,7 @@ public enum MarkdownRenderer {
                             state.panY += event.clientY - state.pointerY;
                             state.pointerX = event.clientX;
                             state.pointerY = event.clientY;
-                            updateMermaidTransform(diagram);
+                            updateMermaidViewport(diagram);
                             event.preventDefault();
                         });
                         function finishPan() {
@@ -712,7 +730,7 @@ public enum MarkdownRenderer {
                                 handled = false;
                             }
                             if (handled) {
-                                updateMermaidTransform(diagram);
+                                updateMermaidViewport(diagram);
                                 event.preventDefault();
                             }
                         });
@@ -725,6 +743,15 @@ public enum MarkdownRenderer {
                             var svg = state.renderTarget.querySelector('svg');
                             if (!svg) return;
                             var viewBox = svg.viewBox && svg.viewBox.baseVal;
+                            if (viewBox && viewBox.width > 0 && viewBox.height > 0) {
+                                state.svg = svg;
+                                state.baseViewBox = {
+                                    x: viewBox.x,
+                                    y: viewBox.y,
+                                    width: viewBox.width,
+                                    height: viewBox.height
+                                };
+                            }
                             var availableWidth = Math.max(1, state.viewport.clientWidth - 24);
                             var fittedHeight = svg.getBoundingClientRect().height;
                             if (viewBox && viewBox.width > 0 && viewBox.height > 0) {
@@ -735,7 +762,7 @@ public enum MarkdownRenderer {
                                 Math.min(640, Math.ceil(fittedHeight + 24))
                             ) + 'px';
                             state.exportButton.disabled = false;
-                            updateMermaidTransform(diagram);
+                            updateMermaidViewport(diagram);
                         });
                     }
 

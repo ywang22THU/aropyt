@@ -122,7 +122,7 @@ tv.textContainer?.containerSize = NSSize(width: scroll.contentSize.width, height
    - body 里塞一个可编辑的 `<article id="content"></article>`
    - 用 `JSON.stringify` 内联原始 markdown 字符串，避免转义错误
    - 末尾 `<script>` 先保护数学片段，再调 `marked.parse` 写入 `#content`，然后用 KaTeX 渲染公式、用 Mermaid 渲染 `language-mermaid` 代码块，并对其余 `pre code` 运行 highlight.js
-   - Mermaid 容器保留原始图表源码，并用独立的工具栏与画布维护 50%–500% 缩放、拖动平移；SVG 通过 WebKit message handler 交给原生保存面板导出
+   - Mermaid 容器保留原始图表源码，并用独立工具栏直接调整 SVG `viewBox` 来维护 50%–500% 矢量缩放与拖动平移，避免 CSS transform 合成层放大后模糊；SVG 通过 WebKit message handler 交给原生保存面板导出
    - Turndown 回写 Mermaid 容器时恢复为 `mermaid` fenced code block，避免交互控件和 SVG 污染 Markdown
 2. WebView 用 `loadHTMLString(_:baseURL:)`，baseURL 指向 Resources 目录，让 `<script src>` 和图片相对路径生效。
 
