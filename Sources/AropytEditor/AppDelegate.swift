@@ -5,6 +5,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var configurableMenuItems: [ShortcutAction: NSMenuItem] = [:]
     private var isPreparingApplicationTermination = false
 
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        AppThemePreferences.shared.apply(to: NSApp)
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         configureSystemTooltipDelay()
         installMenuBar()

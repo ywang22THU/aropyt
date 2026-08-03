@@ -123,6 +123,7 @@ swift run AropytEditor
 - toolbar 切换源码 / 预览。
 - toolbar 格式化按钮：bold、italic、strikethrough、H1、H2、inline code、code block、unordered list、ordered list、blockquote。
 - Settings：快捷键、主题、About（logo、版本号、权限说明）。
+- 主题偏好由 `AppThemePreferences` 持久化，并在应用启动、创建窗口前恢复；重启后继续保持浅色或深色选择。
 - 超长 Markdown 源码增量高亮与预览渐进加载（目标 2 MB / 5 万行）。
 - 长文档预览 dirty / 异步 flush 与保存、关闭、退出一致性保护。
 - General 自动保存设置：On Change、After Delay、Never。
@@ -141,6 +142,7 @@ swift run AropytEditor
 
 最近一次已知验证：
 
+- 2026-08-03：修复主题重启恢复后，Xcode toolchain `swift build --disable-sandbox` 通过；`AppThemePreferencesTests` 2 项通过。完整 31 项测试中主题与其他 30 项通过，既有 2 MB / 5 万行 WebKit 渐进预览用例在当前环境下仍于 30 秒超时。
 - 2026-07-20：Mermaid 缩放由 CSS transform 改为 SVG `viewBox` 后，Xcode toolchain `swift test --disable-sandbox` 全部 29 项通过；真实 WebKit 用例验证 500% 时 `viewBox` 为原始范围的 1/5、拖动修改 `viewBox` 坐标且画布无 CSS transform。
 - 2026-07-20：Xcode toolchain `swift test --disable-sandbox` 全部 29 项通过；新增真实 WebKit Mermaid 缩放边界、拖动、重置、SVG 导出与 Turndown 回写测试。
 - 2026-07-20：Xcode toolchain `swift build --disable-sandbox` 通过。

@@ -1,31 +1,27 @@
 import AppKit
 
+private extension AppTheme {
+    var title: String {
+        switch self {
+        case .system: return L10n.tr("settings.theme.option.system", "Follow System")
+        case .light:  return L10n.tr("settings.theme.option.light", "Light")
+        case .dark:   return L10n.tr("settings.theme.option.dark", "Dark")
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .system: return "circle.lefthalf.filled"
+        case .light:  return "sun.max"
+        case .dark:   return "moon"
+        }
+    }
+}
+
 /// Theme tab：深色 / 浅色 / 跟随系统。
 final class ThemeTabViewController: NSViewController {
     private weak var appearanceStack: NSStackView?
     private weak var languageStack: NSStackView?
-
-    private enum ThemeOption: Int, CaseIterable {
-        case system = 0
-        case light = 1
-        case dark = 2
-
-        var title: String {
-            switch self {
-            case .system: return L10n.tr("settings.theme.option.system", "Follow System")
-            case .light:  return L10n.tr("settings.theme.option.light", "Light")
-            case .dark:   return L10n.tr("settings.theme.option.dark", "Dark")
-            }
-        }
-
-        var symbol: String {
-            switch self {
-            case .system: return "circle.lefthalf.filled"
-            case .light:  return "sun.max"
-            case .dark:   return "moon"
-            }
-        }
-    }
 
     private enum LanguageOption: Int, CaseIterable {
         case system = 0
@@ -60,13 +56,13 @@ final class ThemeTabViewController: NSViewController {
         root.addSubview(appearanceStack)
         self.appearanceStack = appearanceStack
 
-        let saved = UserDefaults.standard.integer(forKey: "AropytEditor.theme")
+        let savedTheme = AppThemePreferences.shared.theme
 
-        for opt in ThemeOption.allCases {
+        for opt in AppTheme.allCases {
             let card = makeCard(
                 title: opt.title,
                 symbol: opt.symbol,
-                selected: opt.rawValue == saved,
+                selected: opt == savedTheme,
                 tag: opt.rawValue,
                 action: #selector(themeSelected(_:))
             )
@@ -175,17 +171,12 @@ final class ThemeTabViewController: NSViewController {
     }
 
     @objc private func themeSelected(_ sender: NSButton) {
-        let value = sender.tag
-        UserDefaults.standard.set(value, forKey: "AropytEditor.theme")
+        guard let theme = AppTheme(rawValue: sender.tag) else { return }
+        let preferences = AppThemePreferences.shared
+        preferences.theme = theme
+        preferences.apply(to: NSApp)
 
-        // 应用主题
-        switch value {
-        case 1:  NSApp.appearance = NSAppearance(named: .aqua)
-        case 2:  NSApp.appearance = NSAppearance(named: .darkAqua)
-        default: NSApp.appearance = nil  // 跟随系统
-        }
-
-        updateSelection(in: appearanceStack, selectedIndex: value)
+        updateSelection(in: appearanceStack, selectedIndex: theme.rawValue)
     }
 
     @objc private func languageSelected(_ sender: NSButton) {
