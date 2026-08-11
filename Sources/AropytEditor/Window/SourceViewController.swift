@@ -146,6 +146,53 @@ final class SourceViewController: NSViewController, NSTextViewDelegate {
         return DocumentFindResult(currentIndex: match.index, totalMatches: totalMatches)
     }
 
+    func replaceCurrent(query: String, with replacement: String) -> DocumentReplaceResult? {
+        guard let textView, !query.isEmpty else { return nil }
+        var range = textView.selectedRange()
+        let source = textView.string as NSString
+        let selectionMatches = range.length > 0
+            && source.substring(with: range).compare(query, options: [.caseInsensitive]) == .orderedSame
+        if !selectionMatches {
+            guard find(query: query, direction: .initial)?.found == true else {
+                return DocumentReplaceResult(
+                    replacements: 0,
+                    findResult: DocumentFindResult(currentIndex: nil, totalMatches: 0)
+                )
+            }
+            range = textView.selectedRange()
+        }
+
+        textView.insertText(replacement, replacementRange: range)
+        return DocumentReplaceResult(
+            replacements: 1,
+            findResult: find(query: query, direction: .next)
+        )
+    }
+
+    func replaceAll(query: String, with replacement: String) -> DocumentReplaceResult? {
+        guard let textView, !query.isEmpty else { return nil }
+        let updated = NSMutableString(string: textView.string)
+        let replacements = updated.replaceOccurrences(
+            of: query,
+            with: replacement,
+            options: [.caseInsensitive],
+            range: NSRange(location: 0, length: updated.length)
+        )
+        guard replacements > 0 else {
+            return DocumentReplaceResult(
+                replacements: 0,
+                findResult: DocumentFindResult(currentIndex: nil, totalMatches: 0)
+            )
+        }
+
+        let fullRange = NSRange(location: 0, length: (textView.string as NSString).length)
+        textView.insertText(updated as String, replacementRange: fullRange)
+        return DocumentReplaceResult(
+            replacements: replacements,
+            findResult: find(query: query, direction: .initial)
+        )
+    }
+
     func focusEditor() {
         view.window?.makeFirstResponder(textView)
     }

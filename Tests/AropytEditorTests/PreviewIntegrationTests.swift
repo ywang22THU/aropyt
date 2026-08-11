@@ -156,6 +156,58 @@ struct PreviewIntegrationTests {
         #expect(missing?.found == false)
     }
 
+    @Test func replacesCurrentAndAllRemainingRenderedPreviewMatches() async throws {
+        _ = NSApplication.shared
+        let controller = PreviewViewController()
+        var latestMarkdown: String?
+        controller.onMarkdownEdited = { latestMarkdown = $0 }
+        _ = controller.view
+        controller.load(markdown: "Alpha alpha ALPHA")
+        try await waitUntilReady(controller, timeout: .seconds(10))
+
+        _ = await withCheckedContinuation { continuation in
+            controller.find(query: "alpha", direction: .initial) {
+                continuation.resume(returning: $0)
+            }
+        }
+        let current = await withCheckedContinuation { continuation in
+            controller.replaceCurrent(query: "alpha", with: "Beta") {
+                continuation.resume(returning: $0)
+            }
+        }
+        #expect(current?.replacements == 1)
+
+        let remaining = await withCheckedContinuation { continuation in
+            controller.replaceAll(query: "alpha", with: "Gamma") {
+                continuation.resume(returning: $0)
+            }
+        }
+        #expect(remaining?.replacements == 2)
+
+        try await waitForCondition(timeout: .seconds(3)) {
+            latestMarkdown == "Beta Gamma Gamma"
+        }
+        let renderedText = try await javaScriptString(
+            "document.getElementById('content').textContent",
+            in: controller.view as! WKWebView
+        )
+        #expect(renderedText.trimmingCharacters(in: .whitespacesAndNewlines) == "Beta Gamma Gamma")
+
+        controller.load(markdown: "a a")
+        try await waitUntilReady(controller, timeout: .seconds(10))
+        let expanding = await withCheckedContinuation { continuation in
+            controller.replaceAll(query: "a", with: "aa") {
+                continuation.resume(returning: $0)
+            }
+        }
+        #expect(expanding?.replacements == 2)
+        let expandedText = try await javaScriptString(
+            "document.getElementById('content').textContent",
+            in: controller.view as! WKWebView
+        )
+        #expect(expandedText.trimmingCharacters(in: .whitespacesAndNewlines) == "aa aa")
+    }
+
     @Test func keepsComplexBlockBoundariesAndLazilyRendersMermaid() async throws {
         _ = NSApplication.shared
         let prefix = (0..<78).map { "## Prefix \($0)" }.joined(separator: "\n")

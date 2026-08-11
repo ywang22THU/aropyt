@@ -70,6 +70,8 @@ final class MainViewController: NSViewController, NSMenuItemValidation {
         findBar.onQueryChanged = { [weak self] _ in self?.performFind(.initial) }
         findBar.onNext = { [weak self] in self?.performFind(.next) }
         findBar.onPrevious = { [weak self] in self?.performFind(.previous) }
+        findBar.onReplaceCurrent = { [weak self] in self?.performReplaceCurrent() }
+        findBar.onReplaceAll = { [weak self] in self?.performReplaceAll() }
         findBar.onClose = { [weak self] in self?.hideFind() }
         embedPreview()
         if let document {
@@ -310,6 +312,19 @@ final class MainViewController: NSViewController, NSMenuItemValidation {
         }
     }
 
+    @IBAction func showReplace(_ sender: Any?) {
+        _ = view
+        findBar.updateLocalization()
+        findBar.isHidden = false
+        findBar.showReplace()
+        findBar.focus(in: view.window)
+        if findBar.hasQuery {
+            performFind(.initial)
+        } else {
+            findBar.setResult(nil)
+        }
+    }
+
     @IBAction func findNext(_ sender: Any?) {
         _ = view
         if findBar.isHidden {
@@ -353,6 +368,52 @@ final class MainViewController: NSViewController, NSMenuItemValidation {
             previewVC?.find(query: query, direction: direction) { [weak self] result in
                 guard let self, generation == self.findGeneration else { return }
                 self.findBar.setResult(result)
+            }
+        }
+    }
+
+    private func performReplaceCurrent() {
+        guard !isPreparingForDiskWrite, findBar.hasQuery else { return }
+        findGeneration &+= 1
+        let generation = findGeneration
+        switch mode {
+        case .source:
+            let result = sourceVC.replaceCurrent(
+                query: findBar.query,
+                with: findBar.replacement
+            )
+            findBar.setResult(result?.findResult)
+        case .preview:
+            findBar.setResult(nil)
+            previewVC?.replaceCurrent(
+                query: findBar.query,
+                with: findBar.replacement
+            ) { [weak self] result in
+                guard let self, generation == self.findGeneration else { return }
+                self.findBar.setResult(result?.findResult)
+            }
+        }
+    }
+
+    private func performReplaceAll() {
+        guard !isPreparingForDiskWrite, findBar.hasQuery else { return }
+        findGeneration &+= 1
+        let generation = findGeneration
+        switch mode {
+        case .source:
+            let result = sourceVC.replaceAll(
+                query: findBar.query,
+                with: findBar.replacement
+            )
+            findBar.setResult(result?.findResult)
+        case .preview:
+            findBar.setResult(nil)
+            previewVC?.replaceAll(
+                query: findBar.query,
+                with: findBar.replacement
+            ) { [weak self] result in
+                guard let self, generation == self.findGeneration else { return }
+                self.findBar.setResult(result?.findResult)
             }
         }
     }

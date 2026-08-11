@@ -255,6 +255,144 @@ final class PreviewViewController: NSViewController, WKNavigationDelegate, WKScr
         }
     }
 
+    func replaceCurrent(query: String,
+                        with replacement: String,
+                        completion: @escaping (DocumentReplaceResult?) -> Void) {
+        guard !query.isEmpty, isReady, webView != nil else {
+            completion(nil)
+            return
+        }
+
+        replaceSelectedText(query: query, with: replacement) { [weak self] replaced in
+            guard let self else { return }
+            if replaced {
+                self.finishPreviewReplacement(count: 1, query: query, completion: completion)
+                return
+            }
+            self.find(query: query, direction: .initial) { [weak self] result in
+                guard let self else { return }
+                guard result?.found == true else {
+                    completion(DocumentReplaceResult(replacements: 0, findResult: result))
+                    return
+                }
+                self.replaceSelectedText(query: query, with: replacement) { [weak self] replaced in
+                    guard let self else { return }
+                    guard replaced else {
+                        completion(DocumentReplaceResult(replacements: 0, findResult: result))
+                        return
+                    }
+                    self.finishPreviewReplacement(count: 1, query: query, completion: completion)
+                }
+            }
+        }
+    }
+
+    func replaceAll(query: String,
+                    with replacement: String,
+                    completion: @escaping (DocumentReplaceResult?) -> Void) {
+        guard !query.isEmpty, isReady, let webView else {
+            completion(nil)
+            return
+        }
+        let queryLiteral = Self.javaScriptStringLiteral(query)
+        let replacementLiteral = Self.javaScriptStringLiteral(replacement)
+        webView.evaluateJavaScript("""
+            (function(query, replacement) {
+                var content = document.getElementById('content');
+                var selection = window.getSelection();
+                if (!content || !selection || !query) return 0;
+
+                var start = document.createRange();
+                start.selectNodeContents(content);
+                start.collapse(true);
+                selection.removeAllRanges();
+                selection.addRange(start);
+
+                function selectionIsInsideContent() {
+                    if (!selection.rangeCount) return false;
+                    var node = selection.getRangeAt(0).commonAncestorContainer;
+                    if (node.nodeType !== Node.ELEMENT_NODE) node = node.parentElement;
+                    return node === content || content.contains(node);
+                }
+
+                function replaceSelection() {
+                    var range = selection.getRangeAt(0);
+                    var node = document.createTextNode(replacement);
+                    range.deleteContents();
+                    range.insertNode(node);
+                    range.setStartAfter(node);
+                    range.collapse(true);
+                    selection.removeAllRanges();
+                    selection.addRange(range);
+                }
+
+                var count = 0;
+                while (window.find(query, false, false, false, false, false, false)) {
+                    if (!selectionIsInsideContent()) break;
+                    replaceSelection();
+                    count += 1;
+                    if (count >= 1000000) break;
+                }
+                if (count > 0) {
+                    content.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+                return count;
+            })(\(queryLiteral), \(replacementLiteral));
+            """) { [weak self] value, error in
+            guard let self else { return }
+            guard error == nil, let count = value as? Int else {
+                completion(nil)
+                return
+            }
+            self.finishPreviewReplacement(count: count, query: query, completion: completion)
+        }
+    }
+
+    private func replaceSelectedText(query: String,
+                                     with replacement: String,
+                                     completion: @escaping (Bool) -> Void) {
+        guard let webView else {
+            completion(false)
+            return
+        }
+        let queryLiteral = Self.javaScriptStringLiteral(query)
+        let replacementLiteral = Self.javaScriptStringLiteral(replacement)
+        webView.evaluateJavaScript("""
+            (function(query, replacement) {
+                var content = document.getElementById('content');
+                var selection = window.getSelection();
+                if (!content || !selection || selection.rangeCount === 0) return false;
+                var range = selection.getRangeAt(0);
+                var container = range.commonAncestorContainer;
+                if (container.nodeType !== Node.ELEMENT_NODE) container = container.parentElement;
+                if (!(container === content || content.contains(container))) return false;
+                if (selection.toString().toLocaleLowerCase() !== query.toLocaleLowerCase()) return false;
+
+                var node = document.createTextNode(replacement);
+                range.deleteContents();
+                range.insertNode(node);
+                range.setStartAfter(node);
+                range.collapse(true);
+                selection.removeAllRanges();
+                selection.addRange(range);
+                content.dispatchEvent(new Event('input', { bubbles: true }));
+                return true;
+            })(\(queryLiteral), \(replacementLiteral));
+            """) { value, error in
+            completion(error == nil && (value as? Bool) == true)
+        }
+    }
+
+    private func finishPreviewReplacement(
+        count: Int,
+        query: String,
+        completion: @escaping (DocumentReplaceResult?) -> Void
+    ) {
+        find(query: query, direction: .next) { result in
+            completion(DocumentReplaceResult(replacements: count, findResult: result))
+        }
+    }
+
     /// Reads the UTF-16 Markdown offset aligned with the top of the preview
     /// viewport. The page derives it from source ranges attached to rendered
     /// top-level blocks.

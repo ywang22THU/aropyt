@@ -31,4 +31,44 @@ struct DocumentFindTests {
             == DocumentFindResult(currentIndex: nil, totalMatches: 0))
         #expect(controller.find(query: "", direction: .initial) == nil)
     }
+
+    @Test func sourceReplacesCurrentMatchAndThenAllRemainingMatches() {
+        _ = NSApplication.shared
+        let controller = SourceViewController()
+        var changedText: String?
+        controller.onTextChanged = { changedText = $0 }
+        controller.setText("Alpha alpha ALPHA")
+
+        _ = controller.find(query: "alpha", direction: .initial)
+        let current = controller.replaceCurrent(query: "alpha", with: "Beta")
+        #expect(current?.replacements == 1)
+        #expect(current?.findResult == DocumentFindResult(currentIndex: 0, totalMatches: 2))
+        #expect(controller.currentText == "Beta alpha ALPHA")
+        #expect(changedText == controller.currentText)
+
+        let remaining = controller.replaceAll(query: "alpha", with: "Gamma")
+        #expect(remaining?.replacements == 2)
+        #expect(remaining?.findResult == DocumentFindResult(currentIndex: nil, totalMatches: 0))
+        #expect(controller.currentText == "Beta Gamma Gamma")
+        #expect(changedText == controller.currentText)
+    }
+
+    @Test func sourceReplaceAllDoesNotRecursivelyReplaceInsertedText() {
+        _ = NSApplication.shared
+        let controller = SourceViewController()
+        controller.setText("a a")
+
+        let result = controller.replaceAll(query: "a", with: "aa")
+        #expect(result?.replacements == 2)
+        #expect(controller.currentText == "aa aa")
+    }
+
+    @Test func replaceControlsExpandFromFindBar() {
+        _ = NSApplication.shared
+        let findBar = FindBarView()
+
+        #expect(!findBar.isReplaceVisible)
+        findBar.showReplace()
+        #expect(findBar.isReplaceVisible)
+    }
 }

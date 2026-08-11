@@ -38,7 +38,7 @@ swift run AropytEditor
 - `Sources/AropytEditor/Document/MarkdownDocument.swift`：`NSDocument` 子类，文档文本的单一数据源。负责读写、undo、变更通知。
 - `Sources/AropytEditor/Window/EditorWindowController.swift`：窗口和 toolbar。用显式 `setup(document:)` 初始化，不依赖 `windowDidLoad`。
 - `Sources/AropytEditor/Window/MainViewController.swift`：源码 / 预览模式协调器。负责 child VC 切换、文档同步、全文查找栏、异步 preview flush、保存与自动保存前准备。
-- `Sources/AropytEditor/Window/FindBarView.swift`：源码 / 预览共用的悬浮查找栏，以及全文查找方向和结果模型。
+- `Sources/AropytEditor/Window/FindBarView.swift`：源码 / 预览共用的悬浮查找 / 替换栏，以及全文查找和替换结果模型。
 - `Sources/AropytEditor/Window/SourceViewController.swift`：源码模式，TextKit 非连续布局、可见区优先和后台分批正则高亮。
 - `Sources/AropytEditor/Window/PreviewViewController.swift`：预览模式，`WKWebView` 渐进渲染、dirty / flush 状态、JS bridge、本地资源 scheme、链接和格式化命令。
 - `Sources/AropytEditor/Highlighter/MarkdownHighlighter.swift`：支持范围高亮与段落范围扩展，并给 Markdown 链接设置 `.link` attribute。
@@ -108,12 +108,13 @@ swift run AropytEditor
 - On Change 串行化保存并把运行期间的新变化合并成一次后续请求；After Delay 重置 debounce；失败保留 pending 状态等待后续重试。
 - 设置通知即时更新所有已注册文档；长文档使用 On Change 时，General 与预览状态区都显示本地化性能警告。
 
-### 全文查找
+### 全文查找与替换
 
-- Edit → Find 提供 `Cmd+F`、`Cmd+G`、`Cmd+Shift+G`，查找栏支持实时搜索、前后跳转、首尾循环和 Esc 关闭。
+- Edit → Find 提供 `Cmd+F`、`Cmd+R`、`Cmd+G`、`Cmd+Shift+G`；查找栏支持实时搜索、前后跳转、首尾循环和 Esc 关闭，左侧 disclosure 可展开替换输入框。
 - 源码模式直接搜索整篇 Markdown，大小写不敏感，并显示当前匹配项 / 总匹配数；扫描过程不保存全部匹配范围，避免长文档产生大量临时内存。
 - 预览模式使用 `WKWebView.find` 搜索渲染后的整页可见文本；WebKit 不提供匹配总数，因此仅在未命中时显示“无结果”。
 - 长文档预览尚未完成时暂不搜索，收到 `previewReady` 后自动重试当前查询；切换源码 / 预览时也会在新模式重跑查询。
+- 替换支持当前项和全部匹配项。源码模式通过 TextKit 编辑路径回写 Markdown；预览模式通过 DOM Range 修改渲染内容并触发现有 input / Turndown / dirty / flush 链路。
 
 ## 项目进展
 
@@ -137,7 +138,7 @@ swift run AropytEditor
 - General 自动保存设置：On Change、After Delay、Never。
 - Swift Testing 单元与 WebKit 集成测试套件。
 - 源码 / 预览模式切换时双向同步视窗位置。
-- Cmd+F 全文查找，以及 Cmd+G / Cmd+Shift+G 前后循环跳转；同时支持源码与预览模式。
+- Cmd+F 全文查找、Cmd+R 直接打开替换、替换当前项 / 全部替换，以及 Cmd+G / Cmd+Shift+G 前后循环跳转；同时支持源码与预览模式。
 - 打包脚本 `package.sh`，可生成 `.app` 和 DMG/PKG。
 
 待实现 / 待完善：
@@ -151,7 +152,7 @@ swift run AropytEditor
 
 最近一次已知验证：
 
-- 2026-08-11：新增全文查找后，Xcode toolchain `swift build --disable-sandbox` 通过；源码查找 2 项和真实 WebKit 预览查找用例通过。完整 34 项测试中 33 项通过，既有 2 MB / 5 万行 WebKit 渐进预览用例仍于 30 秒超时。
+- 2026-08-11：新增全文查找与替换后，Xcode toolchain 构建通过；源码查找 / 替换 5 项和真实 WebKit 预览查找 / 替换用例通过。完整 38 项测试中 37 项通过，既有 2 MB / 5 万行 WebKit 渐进预览用例仍于 30 秒超时。
 - 2026-08-03：修复主题重启恢复后，Xcode toolchain `swift build --disable-sandbox` 通过；`AppThemePreferencesTests` 2 项通过。完整 31 项测试中主题与其他 30 项通过，既有 2 MB / 5 万行 WebKit 渐进预览用例在当前环境下仍于 30 秒超时。
 - 2026-07-20：Mermaid 缩放由 CSS transform 改为 SVG `viewBox` 后，Xcode toolchain `swift test --disable-sandbox` 全部 29 项通过；真实 WebKit 用例验证 500% 时 `viewBox` 为原始范围的 1/5、拖动修改 `viewBox` 坐标且画布无 CSS transform。
 - 2026-07-20：Xcode toolchain `swift test --disable-sandbox` 全部 29 项通过；新增真实 WebKit Mermaid 缩放边界、拖动、重置、SVG 导出与 Turndown 回写测试。

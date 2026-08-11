@@ -22,6 +22,7 @@
 "menu.edit.select_all" = "Select All";
 "menu.find" = "Find";
 "menu.find.find" = "Find...";
+"menu.find.replace" = "Replace...";
 "menu.find.next" = "Find Next";
 "menu.find.previous" = "Find Previous";
 "menu.format" = "Format";
@@ -36,9 +37,13 @@
 "menu.window.zoom" = "Zoom";
 
 "find.placeholder" = "Find in document";
+"find.replace_placeholder" = "Replace with";
 "find.no_results" = "No results";
+"find.toggle_replace" = "Toggle Replace";
 "find.previous" = "Previous Match";
 "find.next" = "Next Match";
+"find.replace" = "Replace";
+"find.replace_all" = "Replace All";
 "find.close" = "Close Find";
 
 "toolbar.toggle_source_preview.label" = "Source / Preview";

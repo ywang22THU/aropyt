@@ -171,6 +171,7 @@ final class ShortcutManager {
             KeyboardShortcut(keyEquivalent: "v", modifiers: .command): L10n.tr("menu.edit.paste", "Paste"),
             KeyboardShortcut(keyEquivalent: "a", modifiers: .command): L10n.tr("menu.edit.select_all", "Select All"),
             KeyboardShortcut(keyEquivalent: "f", modifiers: .command): L10n.tr("menu.find.find", "Find..."),
+            KeyboardShortcut(keyEquivalent: "r", modifiers: .command): L10n.tr("menu.find.replace", "Replace..."),
             KeyboardShortcut(keyEquivalent: "g", modifiers: .command): L10n.tr("menu.find.next", "Find Next"),
             KeyboardShortcut(keyEquivalent: "g", modifiers: [.command, .shift]): L10n.tr("menu.find.previous", "Find Previous"),
             KeyboardShortcut(keyEquivalent: "m", modifiers: .command): L10n.tr("menu.window.minimize", "Minimize"),

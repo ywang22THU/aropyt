@@ -15,7 +15,7 @@ macOS 上的本地 Markdown 编辑器，使用 Swift + AppKit 开发，纯 Swift
 -   工具栏一键切换源码 / 预览模式
 -   预览模式下的所见即所得编辑（基于 contenteditable + turndown 反向生成 markdown）
 -   预览模式 Cmd+点击 链接由系统浏览器打开
--   `Cmd+F` 全文查找，支持 `Cmd+G` / `Cmd+Shift+G` 跳转匹配项（源码与预览模式）
+-   `Cmd+F` 全文查找、`Cmd+R` 展开替换，支持替换当前项 / 全部替换，以及 `Cmd+G` / `Cmd+Shift+G` 跳转匹配项（源码与预览模式）
 -   Settings 窗口（`Cmd+,`）：自定义快捷键、主题（亮 / 暗 / 跟随系统）、About
 
 ### 待实现
@@ -135,6 +135,7 @@ swift run AropytEditor
 | 打开文件 | `Cmd+O` |
 | 保存 | `Cmd+S` |
 | 全文查找 | `Cmd+F` |
+| 查找与替换 | `Cmd+R` |
 | 下一个 / 上一个匹配项 | `Cmd+G` / `Cmd+Shift+G` |
 | 切换源码 / 预览 | `Cmd+Shift+P` |
 | 关闭窗口 | `Cmd+W` |

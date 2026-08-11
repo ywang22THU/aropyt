@@ -169,6 +169,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         findMenu.addItem(withTitle: L10n.tr("menu.find.find", "Find..."),
                          action: #selector(MainViewController.showFind(_:)),
                          keyEquivalent: "f")
+        findMenu.addItem(withTitle: L10n.tr("menu.find.replace", "Replace..."),
+                         action: #selector(MainViewController.showReplace(_:)),
+                         keyEquivalent: "r")
         findMenu.addItem(withTitle: L10n.tr("menu.find.next", "Find Next"),
                          action: #selector(MainViewController.findNext(_:)),
                          keyEquivalent: "g")
