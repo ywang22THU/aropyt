@@ -433,7 +433,22 @@ final class MainViewController: NSViewController, NSMenuItemValidation {
         findBar.updateLocalization()
     }
 
-    // MARK: - Save / close coordination
+    // MARK: - Reload / save / close coordination
+
+    @IBAction func reloadDocument(_ sender: Any?) {
+        guard !isPreparingForDiskWrite, !isSwitchingMode, let document else { return }
+        guard !hasUnflushedPreviewEdits, !document.isDocumentEdited else {
+            presentReloadError(MarkdownDocument.ReloadFromDiskError.unsavedChanges)
+            return
+        }
+
+        do {
+            try document.reloadFromDisk()
+            AutoSaveManager.shared.markSaved(document)
+        } catch {
+            presentReloadError(error)
+        }
+    }
 
     @IBAction func saveDocument(_ sender: Any?) {
         guard !isPreparingForDiskWrite else { return }
@@ -511,6 +526,18 @@ final class MainViewController: NSViewController, NSMenuItemValidation {
         }
     }
 
+    private func presentReloadError(_ error: Error) {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = L10n.tr("reload.error.title", "Could Not Reload")
+        alert.informativeText = error.localizedDescription
+        if let window = view.window {
+            alert.beginSheetModal(for: window)
+        } else {
+            alert.runModal()
+        }
+    }
+
     // MARK: - Validation
 
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
@@ -526,6 +553,9 @@ final class MainViewController: NSViewController, NSMenuItemValidation {
         if menuItem.action == #selector(saveDocument(_:))
             || menuItem.action == #selector(saveDocumentAs(_:)) {
             return !isPreparingForDiskWrite
+        }
+        if menuItem.action == #selector(reloadDocument(_:)) {
+            return document?.fileURL != nil && !isPreparingForDiskWrite && !isSwitchingMode
         }
         if menuItem.action == #selector(findNext(_:))
             || menuItem.action == #selector(findPrevious(_:)) {

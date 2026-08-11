@@ -126,6 +126,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         fileMenu.addItem(closeItem)
         configurableMenuItems[.close] = closeItem
 
+        let reloadItem = NSMenuItem(title: L10n.tr("menu.file.reload", "Reload"),
+                                    action: #selector(MainViewController.reloadDocument(_:)),
+                                    keyEquivalent: "l")
+        reloadItem.keyEquivalentModifierMask = .command
+        fileMenu.addItem(reloadItem)
+
         let saveItem = NSMenuItem(title: L10n.tr("menu.file.save", "Save"),
                                   action: #selector(MainViewController.saveDocument(_:)),
                                   keyEquivalent: "")

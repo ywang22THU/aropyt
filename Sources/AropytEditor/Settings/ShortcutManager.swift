@@ -163,6 +163,7 @@ final class ShortcutManager {
             KeyboardShortcut(keyEquivalent: "h", modifiers: .command): L10n.tr("menu.hide_app", "Hide AropytEditor"),
             KeyboardShortcut(keyEquivalent: "h", modifiers: [.command, .option]): L10n.tr("menu.hide_others", "Hide Others"),
             KeyboardShortcut(keyEquivalent: "q", modifiers: .command): L10n.tr("menu.quit_app", "Quit AropytEditor"),
+            KeyboardShortcut(keyEquivalent: "l", modifiers: .command): L10n.tr("menu.file.reload", "Reload"),
             KeyboardShortcut(keyEquivalent: "s", modifiers: [.command, .shift]): L10n.tr("menu.file.save_as", "Save As..."),
             KeyboardShortcut(keyEquivalent: "z", modifiers: .command): L10n.tr("menu.edit.undo", "Undo"),
             KeyboardShortcut(keyEquivalent: "z", modifiers: [.command, .shift]): L10n.tr("menu.edit.redo", "Redo"),

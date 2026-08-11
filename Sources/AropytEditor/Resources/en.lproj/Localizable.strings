@@ -10,6 +10,7 @@
 "menu.file.new" = "New";
 "menu.file.open" = "Open...";
 "menu.file.close" = "Close";
+"menu.file.reload" = "Reload";
 "menu.file.save" = "Save";
 "menu.file.save_as" = "Save As...";
 "menu.file.revert_to_saved" = "Revert to Saved";
@@ -145,3 +146,6 @@
 "settings.about.permissions.local_data.body" = "Shortcuts, theme, and language preferences are stored locally in macOS user defaults.";
 
 "error.file.decode_failed" = "Unable to decode file contents (not UTF-8/UTF-16).";
+"reload.error.title" = "Could Not Reload";
+"reload.error.no_file" = "This document has not been saved to disk yet.";
+"reload.error.conflict" = "This document contains unsaved changes. Save or discard them before reloading.";

@@ -58,6 +58,7 @@ swift run AropytEditor
 - `MarkdownDocument.text` 是唯一可信数据源，所有 ViewController 从这里读写。
 - `read(from:ofType:)` 支持 UTF-8，失败后尝试 UTF-16。
 - `data(ofType:)` 使用 UTF-8 保存。
+- `reloadFromDisk()` 仅允许无未保存修改的已落盘文档重新读取，避免磁盘内容覆盖本地编辑。
 - `updateText(_:actionName:)` 注册 undo，更新 `text`，调用 `updateChangeCount(.changeDone)`。
 - `text` didSet 发送 `.markdownDocumentTextChanged` 通知。
 - `MarkdownDocument.isLongDocument` 使用 UTF-8 512 KiB 或 1 万行的包含边界判定。
@@ -139,6 +140,7 @@ swift run AropytEditor
 - Swift Testing 单元与 WebKit 集成测试套件。
 - 源码 / 预览模式切换时双向同步视窗位置。
 - Cmd+F 全文查找、Cmd+R 直接打开替换、替换当前项 / 全部替换，以及 Cmd+G / Cmd+Shift+G 前后循环跳转；同时支持源码与预览模式。
+- File → 重新加载（Cmd+L）从磁盘刷新当前文档；存在未保存源码修改或未 flush 的预览修改时拒绝执行。
 - 打包脚本 `package.sh`，可生成 `.app` 和 DMG/PKG。
 
 待实现 / 待完善：
@@ -152,6 +154,7 @@ swift run AropytEditor
 
 最近一次已知验证：
 
+- 2026-08-11：新增磁盘重新加载与冲突保护后，Xcode toolchain 构建通过；重新加载、未保存修改冲突和未命名文档 3 项测试通过。
 - 2026-08-11：新增全文查找与替换后，Xcode toolchain 构建通过；源码查找 / 替换 5 项和真实 WebKit 预览查找 / 替换用例通过。完整 38 项测试中 37 项通过，既有 2 MB / 5 万行 WebKit 渐进预览用例仍于 30 秒超时。
 - 2026-08-03：修复主题重启恢复后，Xcode toolchain `swift build --disable-sandbox` 通过；`AppThemePreferencesTests` 2 项通过。完整 31 项测试中主题与其他 30 项通过，既有 2 MB / 5 万行 WebKit 渐进预览用例在当前环境下仍于 30 秒超时。
 - 2026-07-20：Mermaid 缩放由 CSS transform 改为 SVG `viewBox` 后，Xcode toolchain `swift test --disable-sandbox` 全部 29 项通过；真实 WebKit 用例验证 500% 时 `viewBox` 为原始范围的 1/5、拖动修改 `viewBox` 坐标且画布无 CSS transform。

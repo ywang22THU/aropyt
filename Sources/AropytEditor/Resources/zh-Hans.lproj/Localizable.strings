@@ -10,6 +10,7 @@
 "menu.file.new" = "新建";
 "menu.file.open" = "打开...";
 "menu.file.close" = "关闭";
+"menu.file.reload" = "重新加载";
 "menu.file.save" = "保存";
 "menu.file.save_as" = "另存为...";
 "menu.file.revert_to_saved" = "还原到已保存";
@@ -145,3 +146,6 @@
 "settings.about.permissions.local_data.body" = "快捷键、主题和语言偏好只保存在本机的 macOS 用户默认设置中。";
 
 "error.file.decode_failed" = "无法解码文件内容（非 UTF-8/UTF-16）。";
+"reload.error.title" = "无法重新加载";
+"reload.error.no_file" = "此文档尚未保存到磁盘。";
+"reload.error.conflict" = "此文档包含未保存的更改。请先保存或放弃这些更改，再重新加载。";

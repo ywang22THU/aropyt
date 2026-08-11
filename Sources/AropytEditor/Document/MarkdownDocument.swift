@@ -6,6 +6,26 @@ import MarkdownCore
 /// 必须写 `Swift.print(...)`。
 final class MarkdownDocument: NSDocument {
 
+    enum ReloadFromDiskError: LocalizedError {
+        case noFileURL
+        case unsavedChanges
+
+        var errorDescription: String? {
+            switch self {
+            case .noFileURL:
+                return L10n.tr(
+                    "reload.error.no_file",
+                    "This document has not been saved to disk yet."
+                )
+            case .unsavedChanges:
+                return L10n.tr(
+                    "reload.error.conflict",
+                    "This document contains unsaved changes. Save or discard them before reloading."
+                )
+            }
+        }
+    }
+
     /// 文档当前文本。所有视图都从这里读、写。
     var text: String = "" {
         didSet {
@@ -67,6 +87,20 @@ final class MarkdownDocument: NSDocument {
 
     override func data(ofType typeName: String) throws -> Data {
         return Data(self.text.utf8)
+    }
+
+    /// Reloads the current file without allowing disk contents to overwrite
+    /// unsaved edits in the document model.
+    func reloadFromDisk() throws {
+        guard let fileURL else {
+            throw ReloadFromDiskError.noFileURL
+        }
+        guard !isDocumentEdited else {
+            throw ReloadFromDiskError.unsavedChanges
+        }
+
+        let type = fileType ?? Self.readableTypes[0]
+        try revert(toContentsOf: fileURL, ofType: type)
     }
 
     // MARK: - 文本变更入口（视图控制器调用，走 undo manager）
