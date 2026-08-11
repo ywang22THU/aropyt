@@ -20,6 +20,10 @@
 "menu.edit.copy" = "Copy";
 "menu.edit.paste" = "Paste";
 "menu.edit.select_all" = "Select All";
+"menu.find" = "Find";
+"menu.find.find" = "Find...";
+"menu.find.next" = "Find Next";
+"menu.find.previous" = "Find Previous";
 "menu.format" = "Format";
 "menu.format.bold" = "Bold";
 "menu.format.italic" = "Italic";
@@ -30,6 +34,12 @@
 "menu.window" = "Window";
 "menu.window.minimize" = "Minimize";
 "menu.window.zoom" = "Zoom";
+
+"find.placeholder" = "Find in document";
+"find.no_results" = "No results";
+"find.previous" = "Previous Match";
+"find.next" = "Next Match";
+"find.close" = "Close Find";
 
 "toolbar.toggle_source_preview.label" = "Source / Preview";
 "toolbar.toggle_source_preview.accessibility" = "Toggle source / preview";

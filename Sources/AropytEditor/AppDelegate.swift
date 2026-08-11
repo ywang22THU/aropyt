@@ -161,6 +161,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                          action: #selector(NSText.paste(_:)), keyEquivalent: "v")
         editMenu.addItem(withTitle: L10n.tr("menu.edit.select_all", "Select All"),
                          action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        editMenu.addItem(.separator())
+        let findMenuItem = NSMenuItem(title: L10n.tr("menu.find", "Find"),
+                                      action: nil,
+                                      keyEquivalent: "")
+        let findMenu = NSMenu(title: L10n.tr("menu.find", "Find"))
+        findMenu.addItem(withTitle: L10n.tr("menu.find.find", "Find..."),
+                         action: #selector(MainViewController.showFind(_:)),
+                         keyEquivalent: "f")
+        findMenu.addItem(withTitle: L10n.tr("menu.find.next", "Find Next"),
+                         action: #selector(MainViewController.findNext(_:)),
+                         keyEquivalent: "g")
+        let previousMatch = NSMenuItem(
+            title: L10n.tr("menu.find.previous", "Find Previous"),
+            action: #selector(MainViewController.findPrevious(_:)),
+            keyEquivalent: "G"
+        )
+        previousMatch.keyEquivalentModifierMask = [.command, .shift]
+        findMenu.addItem(previousMatch)
+        findMenuItem.submenu = findMenu
+        editMenu.addItem(findMenuItem)
         editMenuItem.submenu = editMenu
 
         // Format menu

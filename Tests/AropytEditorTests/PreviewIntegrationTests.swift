@@ -117,6 +117,45 @@ struct PreviewIntegrationTests {
         #expect(!controller.isDirty)
     }
 
+    @Test func searchesRenderedPreviewAndMovesBetweenMatches() async throws {
+        _ = NSApplication.shared
+        let controller = PreviewViewController()
+        _ = controller.view
+        controller.load(markdown: "# Alpha heading\n\nBody alpha text")
+        try await waitUntilReady(controller, timeout: .seconds(10))
+
+        let first = await withCheckedContinuation { continuation in
+            controller.find(query: "alpha", direction: .initial) {
+                continuation.resume(returning: $0)
+            }
+        }
+        #expect(first?.found == true)
+        let firstSelection = try await javaScriptString(
+            "window.getSelection().toString()",
+            in: controller.view as! WKWebView
+        )
+        #expect(firstSelection.lowercased() == "alpha")
+
+        let second = await withCheckedContinuation { continuation in
+            controller.find(query: "alpha", direction: .next) {
+                continuation.resume(returning: $0)
+            }
+        }
+        #expect(second?.found == true)
+        let secondSelection = try await javaScriptString(
+            "window.getSelection().toString()",
+            in: controller.view as! WKWebView
+        )
+        #expect(secondSelection.lowercased() == "alpha")
+
+        let missing = await withCheckedContinuation { continuation in
+            controller.find(query: "not present", direction: .initial) {
+                continuation.resume(returning: $0)
+            }
+        }
+        #expect(missing?.found == false)
+    }
+
     @Test func keepsComplexBlockBoundariesAndLazilyRendersMermaid() async throws {
         _ = NSApplication.shared
         let prefix = (0..<78).map { "## Prefix \($0)" }.joined(separator: "\n")

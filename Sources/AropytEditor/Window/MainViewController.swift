@@ -15,6 +15,9 @@ final class MainViewController: NSViewController, NSMenuItemValidation {
     private let sourceVC = SourceViewController()
     /// 预览 VC 懒加载：webView 必须等到 view 第一次访问时 loadView() 才会创建。
     private var previewVC: PreviewViewController?
+    private let contentContainer = NSView()
+    private let findBar = FindBarView()
+    private var findGeneration = 0
 
     /// 当前正在把"来自预览编辑"的更新写回 document。
     /// 在这个窗口期间，document 的变更通知不应再回流去 reload 预览 webview，
@@ -35,11 +38,24 @@ final class MainViewController: NSViewController, NSMenuItemValidation {
         mode == .preview && previewVC?.isDirty == true
     }
 
-    private var container: NSView { self.view }
+    private var container: NSView { contentContainer }
 
     override func loadView() {
-        self.view = NSView(frame: NSRect(x: 0, y: 0, width: 1100, height: 720))
-        self.view.autoresizingMask = [.width, .height]
+        let root = NSView(frame: NSRect(x: 0, y: 0, width: 1100, height: 720))
+        root.autoresizingMask = [.width, .height]
+
+        contentContainer.frame = root.bounds
+        contentContainer.autoresizingMask = [.width, .height]
+        root.addSubview(contentContainer)
+
+        findBar.translatesAutoresizingMaskIntoConstraints = false
+        findBar.isHidden = true
+        root.addSubview(findBar)
+        NSLayoutConstraint.activate([
+            findBar.topAnchor.constraint(equalTo: root.topAnchor, constant: 10),
+            findBar.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -12),
+        ])
+        self.view = root
     }
 
     override func viewDidLoad() {
@@ -51,6 +67,10 @@ final class MainViewController: NSViewController, NSMenuItemValidation {
             doc.updateText(newText, actionName: "Edit")
             AutoSaveManager.shared.contentDidChange(in: doc)
         }
+        findBar.onQueryChanged = { [weak self] _ in self?.performFind(.initial) }
+        findBar.onNext = { [weak self] in self?.performFind(.next) }
+        findBar.onPrevious = { [weak self] in self?.performFind(.previous) }
+        findBar.onClose = { [weak self] in self?.hideFind() }
         embedPreview()
         if let document {
             AutoSaveManager.shared.register(document: document) { [weak self] completion in
@@ -65,6 +85,12 @@ final class MainViewController: NSViewController, NSMenuItemValidation {
             self,
             selector: #selector(documentTextChangedExternally(_:)),
             name: .markdownDocumentTextChanged,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(languageDidChange(_:)),
+            name: L10n.didChangeNotification,
             object: nil
         )
     }
@@ -200,6 +226,9 @@ final class MainViewController: NSViewController, NSMenuItemValidation {
                 previewVC?.scrollToSourceOffset(sourceOffset)
             }
         }
+        if !findBar.isHidden, findBar.hasQuery {
+            performFind(.initial)
+        }
     }
 
     private func embedSource() {
@@ -229,6 +258,11 @@ final class MainViewController: NSViewController, NSMenuItemValidation {
                     document.isLongDocument
                 else { return }
                 AutoSaveManager.shared.contentDidChange(in: document)
+            }
+            pvc.onRenderReady = { [weak self, weak pvc] in
+                guard let self, self.mode == .preview, self.previewVC === pvc,
+                      !self.findBar.isHidden, self.findBar.hasQuery else { return }
+                self.performFind(.initial)
             }
             previewVC = pvc
         }
@@ -260,6 +294,82 @@ final class MainViewController: NSViewController, NSMenuItemValidation {
 
     @IBAction func applyItalic(_ sender: Any?) {
         applyFormat("italic")
+    }
+
+    // MARK: - Find
+
+    @IBAction func showFind(_ sender: Any?) {
+        _ = view
+        findBar.updateLocalization()
+        findBar.isHidden = false
+        findBar.focus(in: view.window)
+        if findBar.hasQuery {
+            performFind(.initial)
+        } else {
+            findBar.setResult(nil)
+        }
+    }
+
+    @IBAction func findNext(_ sender: Any?) {
+        _ = view
+        if findBar.isHidden {
+            findBar.isHidden = false
+            findBar.updateLocalization()
+        }
+        guard findBar.hasQuery else {
+            findBar.focus(in: view.window)
+            return
+        }
+        performFind(.next)
+    }
+
+    @IBAction func findPrevious(_ sender: Any?) {
+        _ = view
+        if findBar.isHidden {
+            findBar.isHidden = false
+            findBar.updateLocalization()
+        }
+        guard findBar.hasQuery else {
+            findBar.focus(in: view.window)
+            return
+        }
+        performFind(.previous)
+    }
+
+    private func performFind(_ direction: DocumentFindDirection) {
+        let query = findBar.query
+        guard !query.isEmpty else {
+            findGeneration &+= 1
+            findBar.setResult(nil)
+            return
+        }
+        findGeneration &+= 1
+        let generation = findGeneration
+        switch mode {
+        case .source:
+            findBar.setResult(sourceVC.find(query: query, direction: direction))
+        case .preview:
+            findBar.setResult(nil)
+            previewVC?.find(query: query, direction: direction) { [weak self] result in
+                guard let self, generation == self.findGeneration else { return }
+                self.findBar.setResult(result)
+            }
+        }
+    }
+
+    private func hideFind() {
+        findGeneration &+= 1
+        findBar.isHidden = true
+        switch mode {
+        case .source:
+            sourceVC.focusEditor()
+        case .preview:
+            view.window?.makeFirstResponder(previewVC?.view)
+        }
+    }
+
+    @objc private func languageDidChange(_ notification: Notification) {
+        findBar.updateLocalization()
     }
 
     // MARK: - Save / close coordination
@@ -355,6 +465,10 @@ final class MainViewController: NSViewController, NSMenuItemValidation {
         if menuItem.action == #selector(saveDocument(_:))
             || menuItem.action == #selector(saveDocumentAs(_:)) {
             return !isPreparingForDiskWrite
+        }
+        if menuItem.action == #selector(findNext(_:))
+            || menuItem.action == #selector(findPrevious(_:)) {
+            return true
         }
         return true
     }

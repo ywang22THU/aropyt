@@ -20,6 +20,10 @@
 "menu.edit.copy" = "复制";
 "menu.edit.paste" = "粘贴";
 "menu.edit.select_all" = "全选";
+"menu.find" = "查找";
+"menu.find.find" = "查找...";
+"menu.find.next" = "查找下一个";
+"menu.find.previous" = "查找上一个";
 "menu.format" = "格式";
 "menu.format.bold" = "粗体";
 "menu.format.italic" = "斜体";
@@ -30,6 +34,12 @@
 "menu.window" = "窗口";
 "menu.window.minimize" = "最小化";
 "menu.window.zoom" = "缩放";
+
+"find.placeholder" = "在文档中查找";
+"find.no_results" = "无结果";
+"find.previous" = "上一个匹配项";
+"find.next" = "下一个匹配项";
+"find.close" = "关闭查找";
 
 "toolbar.toggle_source_preview.label" = "源码 / 预览";
 "toolbar.toggle_source_preview.accessibility" = "切换源码 / 预览";

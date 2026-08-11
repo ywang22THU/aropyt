@@ -145,8 +145,14 @@ final class ShortcutManager {
 
         for action in ShortcutAction.displayOrder {
             if let shortcut = stored[action.rawValue] {
-                shortcuts[action] = KeyboardShortcut(keyEquivalent: shortcut.keyEquivalent,
-                                                     modifiers: shortcut.modifiers)
+                let normalized = KeyboardShortcut(keyEquivalent: shortcut.keyEquivalent,
+                                                  modifiers: shortcut.modifiers)
+                // A shortcut may have been customized before a new fixed menu
+                // command was introduced. Keep fixed system commands available
+                // by falling back to this action's default in that case.
+                if reservedShortcutLabels[normalized] == nil {
+                    shortcuts[action] = normalized
+                }
             }
         }
         return shortcuts
@@ -164,6 +170,9 @@ final class ShortcutManager {
             KeyboardShortcut(keyEquivalent: "c", modifiers: .command): L10n.tr("menu.edit.copy", "Copy"),
             KeyboardShortcut(keyEquivalent: "v", modifiers: .command): L10n.tr("menu.edit.paste", "Paste"),
             KeyboardShortcut(keyEquivalent: "a", modifiers: .command): L10n.tr("menu.edit.select_all", "Select All"),
+            KeyboardShortcut(keyEquivalent: "f", modifiers: .command): L10n.tr("menu.find.find", "Find..."),
+            KeyboardShortcut(keyEquivalent: "g", modifiers: .command): L10n.tr("menu.find.next", "Find Next"),
+            KeyboardShortcut(keyEquivalent: "g", modifiers: [.command, .shift]): L10n.tr("menu.find.previous", "Find Previous"),
             KeyboardShortcut(keyEquivalent: "m", modifiers: .command): L10n.tr("menu.window.minimize", "Minimize"),
         ]
     }

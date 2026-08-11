@@ -50,6 +50,7 @@ final class PreviewViewController: NSViewController, WKNavigationDelegate, WKScr
     var onMarkdownEdited: ((String) -> Void)?
     var onDirtyStateChanged: ((Bool) -> Void)?
     var onMermaidExportRequested: ((String, String) -> Void)?
+    var onRenderReady: (() -> Void)?
 
     override func loadView() {
         let config = WKWebViewConfiguration()
@@ -208,6 +209,50 @@ final class PreviewViewController: NSViewController, WKNavigationDelegate, WKScr
         let escaped = command.replacingOccurrences(of: "'", with: "\\'")
         wv.evaluateJavaScript("window.aropytApplyFormat && window.aropytApplyFormat('\(escaped)')",
                               completionHandler: nil)
+    }
+
+    /// Searches the rendered document text using WebKit's page-find engine.
+    /// An initial search resets the page selection so incremental query changes
+    /// consistently start from the beginning of the preview.
+    func find(query: String,
+              direction: DocumentFindDirection,
+              completion: @escaping (DocumentFindResult?) -> Void) {
+        guard !query.isEmpty, isReady, let webView else {
+            completion(nil)
+            return
+        }
+
+        let performFind = {
+            let configuration = WKFindConfiguration()
+            configuration.backwards = direction == .previous
+            configuration.caseSensitive = false
+            configuration.wraps = true
+            webView.find(query, configuration: configuration) { result in
+                completion(DocumentFindResult(
+                    currentIndex: nil,
+                    totalMatches: result.matchFound ? nil : 0
+                ))
+            }
+        }
+
+        guard direction == .initial else {
+            performFind()
+            return
+        }
+        webView.evaluateJavaScript("""
+            (function() {
+                var root = document.getElementById('content');
+                var selection = window.getSelection();
+                if (!root || !selection) return;
+                var range = document.createRange();
+                range.selectNodeContents(root);
+                range.collapse(true);
+                selection.removeAllRanges();
+                selection.addRange(range);
+            })();
+            """) { _, _ in
+            performFind()
+        }
     }
 
     /// Reads the UTF-16 Markdown offset aligned with the top of the preview
@@ -411,6 +456,7 @@ final class PreviewViewController: NSViewController, WKNavigationDelegate, WKScr
             isReady = true
             renderState = .ready
             applyPendingViewportSourceOffsetIfPossible()
+            onRenderReady?()
         case "previewDirty":
             guard let dirty = message.body as? Bool else { return }
             setDirty(dirty)

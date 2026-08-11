@@ -86,6 +86,70 @@ final class SourceViewController: NSViewController, NSTextViewDelegate {
         startInitialHighlighting(for: s)
     }
 
+    /// Searches the entire Markdown source, selects the requested match, and
+    /// wraps at either end of the document.
+    func find(query: String, direction: DocumentFindDirection) -> DocumentFindResult? {
+        guard let textView, !query.isEmpty else { return nil }
+        let text = textView.string as NSString
+        let queryLength = (query as NSString).length
+        guard queryLength > 0, queryLength <= text.length else {
+            return DocumentFindResult(currentIndex: nil, totalMatches: 0)
+        }
+
+        typealias Match = (range: NSRange, index: Int)
+        let selection = textView.selectedRange()
+        var firstMatch: Match?
+        var lastMatch: Match?
+        var selectedMatch: Match?
+        var firstInitialMatch: Match?
+        var firstNextMatch: Match?
+        var lastPreviousMatch: Match?
+        var totalMatches = 0
+        var searchLocation = 0
+        while searchLocation <= text.length - queryLength {
+            let searchRange = NSRange(location: searchLocation, length: text.length - searchLocation)
+            let range = text.range(of: query, options: [.caseInsensitive], range: searchRange)
+            guard range.location != NSNotFound else { break }
+            let match = Match(range: range, index: totalMatches)
+            firstMatch = firstMatch ?? match
+            lastMatch = match
+            if range == selection { selectedMatch = match }
+            if firstInitialMatch == nil, NSMaxRange(range) > selection.location {
+                firstInitialMatch = match
+            }
+            if firstNextMatch == nil, range.location >= NSMaxRange(selection) {
+                firstNextMatch = match
+            }
+            if NSMaxRange(range) <= selection.location {
+                lastPreviousMatch = match
+            }
+            totalMatches += 1
+            searchLocation = NSMaxRange(range)
+        }
+        guard let firstMatch, let lastMatch else {
+            return DocumentFindResult(currentIndex: nil, totalMatches: 0)
+        }
+
+        let match: Match
+        switch direction {
+        case .initial:
+            match = selectedMatch ?? firstInitialMatch ?? firstMatch
+        case .next:
+            match = firstNextMatch ?? firstMatch
+        case .previous:
+            match = lastPreviousMatch ?? lastMatch
+        }
+
+        textView.setSelectedRange(match.range)
+        textView.scrollRangeToVisible(match.range)
+        textView.showFindIndicator(for: match.range)
+        return DocumentFindResult(currentIndex: match.index, totalMatches: totalMatches)
+    }
+
+    func focusEditor() {
+        view.window?.makeFirstResponder(textView)
+    }
+
     /// Returns the UTF-16 source offset currently aligned with the top of the
     /// visible source viewport. NSTextView and JavaScript strings both use this
     /// coordinate system, so no lossy Unicode conversion is needed.
