@@ -13,14 +13,18 @@ final class WorkspaceSidebarViewController: NSViewController {
     var confirmDelete: ((WorkspaceTreeNode, @escaping (Bool) -> Void) -> Void)?
 
     private let scrollView = NSScrollView()
-    private let pasteboard: NSPasteboard
+    private let copyPathHandler: (String) -> Void
     private var pendingError: Error?
 
     init(rootURL: URL,
          fileManager: FileManager = .default,
-         pasteboard: NSPasteboard = .general) throws {
+         copyPathHandler: ((String) -> Void)? = nil) throws {
         self.model = try WorkspaceTreeModel(rootURL: rootURL, fileManager: fileManager)
-        self.pasteboard = pasteboard
+        self.copyPathHandler = copyPathHandler ?? { path in
+            let pasteboard = NSPasteboard.general
+            pasteboard.clearContents()
+            pasteboard.setString(path, forType: .string)
+        }
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -276,8 +280,7 @@ final class WorkspaceSidebarViewController: NSViewController {
 
     @objc private func copyPath(_ sender: Any?) {
         guard let node = node(from: sender) else { return }
-        pasteboard.clearContents()
-        pasteboard.setString(node.url.path, forType: .string)
+        copyPathHandler(node.url.path)
     }
 
     private func requestName(title: String,

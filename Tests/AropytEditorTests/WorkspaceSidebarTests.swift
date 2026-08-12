@@ -88,11 +88,11 @@ struct WorkspaceSidebarTests {
         defer { try? FileManager.default.removeItem(at: root) }
         let fileURL = root.appendingPathComponent("README.md")
         try Data().write(to: fileURL)
-        let pasteboard = NSPasteboard(
-            name: NSPasteboard.Name("WorkspaceSidebarTests.\(UUID().uuidString)")
+        var copiedPath: String?
+        let controller = try WorkspaceSidebarViewController(
+            rootURL: root,
+            copyPathHandler: { copiedPath = $0 }
         )
-        defer { pasteboard.releaseGlobally() }
-        let controller = try WorkspaceSidebarViewController(rootURL: root, pasteboard: pasteboard)
         let node = try #require(try controller.model.children(of: controller.model.root).first)
         let menu = controller.contextMenu(for: node)
         let openItem = try #require(menu.items.first)
@@ -106,7 +106,7 @@ struct WorkspaceSidebarTests {
         NSApp.sendAction(try #require(copyItem.action), to: copyItem.target, from: copyItem)
 
         #expect(openedNode === node)
-        #expect(pasteboard.string(forType: .string) == fileURL.path)
+        #expect(copiedPath == fileURL.path)
     }
 
     @Test func deleteRequiresConfirmationBeforeChangingDisk() throws {
