@@ -90,6 +90,12 @@
 "settings.language.option.english" = "English";
 "settings.language.option.zh_hans" = "Simplified Chinese";
 "settings.general.title" = "General";
+"settings.launch.title" = "Behavior at Application Launch";
+"settings.launch.create_new" = "Create a new document";
+"settings.launch.reopen_last" = "Reopen the last closed document";
+"settings.launch.open_specific" = "Open a specific document";
+"settings.launch.choose_file" = "Choose…";
+"settings.launch.specific_file.none" = "No file selected";
 "settings.autosave.mode" = "Auto Save";
 "settings.autosave.delay" = "Delay";
 "settings.autosave.seconds" = "seconds";

@@ -90,6 +90,12 @@
 "settings.language.option.english" = "英文";
 "settings.language.option.zh_hans" = "简体中文";
 "settings.general.title" = "通用";
+"settings.launch.title" = "应用启动时行为";
+"settings.launch.create_new" = "创建新文件";
+"settings.launch.reopen_last" = "重新打开上次关闭时的文件";
+"settings.launch.open_specific" = "打开指定的文件";
+"settings.launch.choose_file" = "选择…";
+"settings.launch.specific_file.none" = "尚未选择文件";
 "settings.autosave.mode" = "自动保存";
 "settings.autosave.delay" = "延迟";
 "settings.autosave.seconds" = "秒";
