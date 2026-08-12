@@ -7,6 +7,7 @@ macOS 上的本地 Markdown 编辑器，使用 Swift + AppKit 开发，纯 Swift
 ### 已实现
 
 -   打开 / 新建 / 保存 `.md` 文件（NSDocument）
+-   打开目录工作区：左侧按层展开且仅显示 `.md` 的文件树；支持同窗切换、侧边栏收起/展开，以及新建、重命名、确认删除、刷新、访达显示和复制路径
 -   **源码模式**：基于 `NSTextView`，带正则语法高亮
 -   **预览模式**：基于 `WKWebView` + 本地 `marked.js` + `highlight.js`，支持完整 CommonMark/GFM
     -   粗体、斜体、删除线、列表、标题、代码块（带语法高亮；行号与自动换行可配置）、表格、图片、链接、引用块、HR 等
@@ -64,6 +65,15 @@ macOS 上的本地 Markdown 编辑器，使用 Swift + AppKit 开发，纯 Swift
 | `MainViewController.swift` | 模式协调器。持有 `document` 引用、`sourceVC` 实例、懒加载的 `previewVC`，维护当前 `mode`。`toggleMode(_:)` 是切换入口（菜单和 toolbar 都连到这里）；切换时移除旧子 VC、嵌入新子 VC，并把最新文本同步到对方。监听 `markdownDocumentTextChanged` 通知实现外部变更同步。**改源码/预览之间的同步逻辑、模式切换行为时改这里。** |
 | `SourceViewController.swift` | 源码模式 ViewController。在 `loadView()` 里手动构造 `NSScrollView` + `NSTextView`（必须设 `minSize/maxSize/isVerticallyResizable/textContainer` 等，否则可能空白），关闭所有自动替换/拼写检查/链接检测/富文本，使用等宽字体。`textDidChange` 回调把文本传给 `onTextChanged`，并调 `applyHighlighting()` 重新染色。**改编辑器字体、颜色、行为（如缩进、wrapping）时改这里。** |
 | `PreviewViewController.swift` | 预览模式 ViewController。**懒加载 `webView`**：`load(markdown:)` 入口必须先 `_ = self.view` 触发 `loadView()` 才能访问 `webView`。`renderInternal` 调 `MarkdownRenderer.htmlDocument(for:)` 拿到 HTML，然后 `loadHTMLString(_:baseURL:)`（baseURL 指向 `Bundle.module.resourceURL`，让相对路径资源生效）。`WKNavigationDelegate` 拦截 `linkActivated`，用 `NSWorkspace.shared.open` 在系统浏览器打开。**改预览的 WebView 配置、链接打开行为时改这里。** |
+
+### `Sources/AropytEditor/Workspace/`
+
+| 文件 | 作用 |
+| --- | --- |
+| `WorkspaceFileSystem.swift` | 目录读取和创建 / 重命名 / 删除的落盘层；目录优先排序，并过滤掉隐藏项、符号链接和非 `.md` 文件。 |
+| `WorkspaceTreeModel.swift` | 文件树节点与逐层懒加载缓存；刷新时使目标子树缓存失效。 |
+| `WorkspaceSidebarViewController.swift` | `NSOutlineView` 文件树、左键选择/展开，以及带分隔区域的动态右键菜单。 |
+| `WorkspaceContainerViewController.swift` | 左侧目录树 + 右侧编辑器的 split view，负责侧边栏收起/展开和 toast。 |
 
 ### `Sources/AropytEditor/Highlighter/`
 
@@ -129,6 +139,8 @@ swift run AropytEditor
 ```
 
 默认启动后会自动出现一个空白 Markdown 文档窗口。可在“设置 → 通用 → 应用启动时行为”改为重新打开上次关闭的文件或打开指定文件；文件无效或打开失败时仍会创建空白文档。
+
+使用“文件 → 打开目录…”可创建目录工作区窗口。点击目录逐层展开，点击 `.md` 文件会在同一窗口右侧打开；右键项目可执行文件树操作。
 
 ### 常用快捷键
 

@@ -60,6 +60,55 @@ struct WorkspaceSidebarTests {
         #expect(openedURL == fileURL.standardizedFileURL)
     }
 
+    @Test func selectingDirectoryExpandsItsNextLevel() throws {
+        _ = NSApplication.shared
+        let root = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(
+            at: root.appendingPathComponent("Guides", isDirectory: true),
+            withIntermediateDirectories: false
+        )
+        let controller = try WorkspaceSidebarViewController(rootURL: root)
+        _ = controller.view
+        controller.outlineView.reloadData()
+        controller.outlineView.expandItem(controller.model.root)
+        let directory = try #require(try controller.model.children(of: controller.model.root).first)
+
+        controller.outlineView.selectRowIndexes(
+            IndexSet(integer: controller.outlineView.row(forItem: directory)),
+            byExtendingSelection: false
+        )
+
+        #expect(controller.outlineView.isItemExpanded(directory))
+    }
+
+    @Test func contextActionsDispatchNewWindowAndCopyPath() throws {
+        _ = NSApplication.shared
+        let root = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let fileURL = root.appendingPathComponent("README.md")
+        try Data().write(to: fileURL)
+        let pasteboard = NSPasteboard(
+            name: NSPasteboard.Name("WorkspaceSidebarTests.\(UUID().uuidString)")
+        )
+        defer { pasteboard.releaseGlobally() }
+        let controller = try WorkspaceSidebarViewController(rootURL: root, pasteboard: pasteboard)
+        let node = try #require(try controller.model.children(of: controller.model.root).first)
+        let menu = controller.contextMenu(for: node)
+        let openItem = try #require(menu.items.first)
+        let copyItem = try #require(menu.items.first {
+            $0.title == L10n.tr("workspace.menu.copy_path", "Copy File Path")
+        })
+        var openedNode: WorkspaceTreeNode?
+        controller.onOpenInNewWindow = { openedNode = $0 }
+
+        NSApp.sendAction(try #require(openItem.action), to: openItem.target, from: openItem)
+        NSApp.sendAction(try #require(copyItem.action), to: copyItem.target, from: copyItem)
+
+        #expect(openedNode === node)
+        #expect(pasteboard.string(forType: .string) == fileURL.path)
+    }
+
     @Test func deleteRequiresConfirmationBeforeChangingDisk() throws {
         _ = NSApplication.shared
         let root = try makeTemporaryDirectory()

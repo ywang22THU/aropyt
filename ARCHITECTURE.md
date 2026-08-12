@@ -36,6 +36,11 @@ aropyt/
 │       │   ├── MainViewController.swift     # 模式协调器（切换 source/preview）
 │       │   ├── SourceViewController.swift   # NSTextView + 正则高亮
 │       │   └── PreviewViewController.swift  # WKWebView 渲染 + contenteditable 编辑
+│       ├── Workspace/
+│       │   ├── WorkspaceFileSystem.swift     # 过滤、校验和磁盘操作
+│       │   ├── WorkspaceTreeModel.swift      # 懒加载树模型
+│       │   ├── WorkspaceSidebarViewController.swift # NSOutlineView + 右键菜单
+│       │   └── WorkspaceContainerViewController.swift # split view + toast
 │       ├── Highlighter/
 │       │   └── MarkdownHighlighter.swift    # 简单正则语法高亮
 │       ├── Settings/                        # ⌘, 打开的设置窗口
@@ -134,6 +139,14 @@ tv.textContainer?.containerSize = NSSize(width: scroll.contentSize.width, height
 `ApplicationLaunchPreferences` 保存三种启动行为：创建新文档、重新打开上次关闭的文档、打开指定文档。`MarkdownDocument.close()` 记录最后关闭的文件路径；untitled 关闭时清空旧记录。
 
 `applicationShouldOpenUntitledFile` 只在 AppKit 原本准备创建启动文档时调用 `ApplicationLaunchCoordinator`，因此双击文件或 `open` 命令仍走系统文档打开流程。目标文件不存在、不可读或打开失败时统一回退创建 untitled。
+
+### 8. 目录工作区
+
+`AppDocumentController.openDirectory(at:)` 为目录创建独立的 untitled `MarkdownDocument` 窗口。`EditorWindowController` 把原来的 `MainViewController` 放进 `WorkspaceContainerViewController` 右侧，并在左侧安装 `WorkspaceSidebarViewController`。
+
+文件树使用 `NSOutlineView` 和按层懒加载的 `WorkspaceTreeModel`。`WorkspaceFileSystem` 是所有目录菜单操作的唯一落盘入口，负责工作区边界校验、目录优先排序、只保留 `.md` 文件、冲突检测，以及创建 / 重命名 / 删除。
+
+工作区在同一窗口复用一个 `MarkdownDocument`。选择新文件前先让 `MainViewController` flush 未写回的预览 DOM；若 document 已编辑，再通过 `NSDocument.canClose` 使用系统保存 / 放弃 / 取消流程。确认切换后才读取新文件、替换 `document.text` 和 `fileURL` 并清理旧 undo。这样现有保存、自动保存、查找和源码 / 预览同步链路无需分叉。
 
 ## P1 设计草图（不在本次实现范围）
 
