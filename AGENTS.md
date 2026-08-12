@@ -13,10 +13,7 @@
 
 ## 最近一次 /goal input
 
-你加一下这个粘贴图片的功能吧，默认是不粘贴，然后用图片本身的路径导航，然后在设置里面加一个 subitem 图像，里面有三项：
-1. 插入图片位置，单选，可选项有：原路径（默认）、粘贴到当前目录（./），粘贴到资源目录 （./assets/）
-2. 资源目录名称，输入框，只支持常见的文件路径编码格式，默认 assets，只在上方是 “粘贴到资源目录” 时候可修改，改了之后资源目录要对应变化
-3. 插入时自动转移图片 URL，对 UTF8 等非 ASICII 字符进行转义，跟 HTTP URL 一样
+无。当前没有进行中的 goal；已完成 goal 的结果已沉淀到下面的项目进展中。
 
 ## 项目概况
 
@@ -46,10 +43,11 @@ swift run AropytEditor
 - `Sources/AropytEditor/Window/FindBarView.swift`：源码 / 预览共用的悬浮查找 / 替换栏，以及全文查找和替换结果模型。
 - `Sources/AropytEditor/Window/SourceViewController.swift`：源码模式，TextKit 非连续布局、可见区优先和后台分批正则高亮。
 - `Sources/AropytEditor/Window/PreviewViewController.swift`：预览模式，`WKWebView` 渐进渲染、dirty / flush 状态、JS bridge、本地资源 scheme、链接和格式化命令。
+- `Sources/AropytEditor/ImagePaste/`：图片剪贴板解析与粘贴服务。负责识别文件 URL / 位图、按偏好决定原路径或复制目录、安全避免覆盖同名文件、生成并可选 URL 转义 Markdown image。
 - `Sources/AropytEditor/Workspace/`：打开目录工作区。`WorkspaceFileSystem` 负责过滤与真实磁盘操作，`WorkspaceTreeModel` 提供懒加载树，`WorkspaceSidebarViewController` 提供文件树和右键菜单，`WorkspaceContainerViewController` 提供左右 split view 与折叠动画。
 - `Sources/AropytEditor/Highlighter/MarkdownHighlighter.swift`：支持范围高亮与段落范围扩展，并给 Markdown 链接设置 `.link` attribute。
 - `Sources/AropytEditor/AutoSave/`：`AutoSavePreferences` 和按文档串行合并请求的 `AutoSaveManager`。
-- `Sources/AropytEditor/Settings/`：Settings 窗口、General 启动行为与自动保存、Shortcuts、Theme、Syntax Preferences、About。
+- `Sources/AropytEditor/Settings/`：Settings 窗口、General 启动行为与自动保存、Shortcuts、Theme、Syntax Preferences、Images、About。
 - `Sources/AropytEditor/Resources/`：`marked.umd.js`、`highlight.min.js`、`katex.min.js`、`auto-render.min.js`、`katex.min.css`、`fonts/` KaTeX woff2 字体、`mermaid.min.js`、`turndown.js`、`turndown-plugin-gfm.js`、GitHub CSS 主题、`Info.plist`。
 - `package.sh`：release build、组装 `.app`、ad-hoc 签名、生成 DMG/PKG。
 - `README.md`：功能、目录、构建、打包说明。
@@ -138,6 +136,13 @@ swift run AropytEditor
 - 长文档预览尚未完成时暂不搜索，收到 `previewReady` 后自动重试当前查询；切换源码 / 预览时也会在新模式重跑查询。
 - 替换支持当前项和全部匹配项。源码模式通过 TextKit 编辑路径回写 Markdown；预览模式通过 DOM Range 修改渲染内容并触发现有 input / Turndown / dirty / flush 链路。
 
+### 图片粘贴
+
+- Cmd+V 在源码与预览编辑器焦点内识别 Finder 图片文件 URL 或剪贴板位图；普通文本粘贴继续交给系统。源码插入 Markdown，预览在当前 DOM 选区插入后通过既有 input / Turndown 链路回写。
+- Images 设置提供原路径（默认且不复制）、当前目录 `./`、资源目录 `./assets/` 三种位置；资源目录名默认 `assets`，仅在资源目录模式可编辑，支持安全相对路径并实时反映到选项和实际目录。
+- 复制模式要求文档已保存；位图统一写成 PNG，文件名冲突时追加 `-2` 等序号，不覆盖已有文件。原路径模式要求剪贴板带本地文件路径。
+- 图片 Markdown URL 默认按 HTTP path 规则转义空格与 UTF-8 非 ASCII 字符，可在 Images 设置关闭。预览的只读 `aropyt-document://` scheme 只提供图片 MIME，可显示文档目录内外的本地图片，并用 `data-aropyt-image-source` 保证回写仍保留原 Markdown 路径。
+
 ## 项目进展
 
 已实现：
@@ -167,19 +172,19 @@ swift run AropytEditor
 - Cmd+F 全文查找、Cmd+R 直接打开替换、替换当前项 / 全部替换，以及 Cmd+G / Cmd+Shift+G 前后循环跳转；同时支持源码与预览模式。
 - File → 重新加载（Cmd+L）从磁盘刷新当前文档；存在未保存源码修改或未 flush 的预览修改时拒绝执行。
 - File → 打开目录：左侧懒加载 `.md` 文件树、同窗文件切换、标题栏侧边栏按钮，以及分组右键菜单（新窗口打开、新建、重命名、确认删除、刷新、访达显示、复制路径）。
+- Cmd+V 图片粘贴：默认使用本地图片原路径且不复制，也可复制到当前目录或可配置资源目录；支持源码 / 预览模式、同名保护和图片 URL 自动转义。
 - 打包脚本 `package.sh`，可生成 `.app` 和 DMG/PKG。
 
 待实现 / 待完善：
 
-- Cmd+V 直接粘贴图片：从 pasteboard 取图片，写入文档旁 assets 目录，插入 Markdown image。
 - 表格操作：行列插入 / 删除、对齐控制。
 - `ShortcutAction` 只覆盖 bold / italic，没有覆盖 toolbar 里的全部格式化按钮。
-- 相对图片路径目前主要依赖 WebView baseURL；后续做图片粘贴/资源管理时需要重新审视预览资源 URL 与文档目录 URL 的关系。
 
 ## 验证状态
 
 最近一次已知验证：
 
+- 2026-08-13：新增 Cmd+V 图片粘贴与 Images 设置后，偏好/UI、原路径不复制、当前/资源目录复制、嵌套资源目录、同名保护、UTF-8 URL 转义、Finder 文件 URL / 原始位图、源码插入和真实 WebKit 预览插入共 23 项聚焦测试通过；Xcode toolchain 构建通过。完整 97 项测试中 96 项通过，唯一失败仍是既有 2 MB / 5 万行 WebKit 完整预览 30 秒超时；普通预览、相对图片、视口同步及本轮图片粘贴用例均通过。
 - 2026-08-12：修复目录树根节点仍贴左边框并统一左右留白后，测试直接读取根行 disclosure indicator 的实际渲染坐标，并量取滚动区域左右边距，确认两侧均为 10 pt；工作区侧边栏 9 项、工作区窗口 2 项聚焦测试通过。此前完整 78 项测试中 76 项通过：既有 2 MB / 5 万行 WebKit 完整预览仍于 30 秒超时，普通文档视口同步用例也超时；后者单独复跑仍失败，与本次仅涉及侧边栏布局的改动无代码交集。
 - 2026-08-12：移除侧边栏切换 toast、按窗口顶部 chrome 动态纵向居中标题栏按钮，并给目录树根节点增加 10 pt 左侧 inset 后，工作区窗口 2 项聚焦测试通过；Xcode toolchain 构建通过。完整 77 项测试中 76 项通过，唯一失败仍是既有 2 MB / 5 万行 WebKit 完整预览 30 秒超时；源码视口同步和局部高亮性能用例通过。
 - 2026-08-12：修正目录工作区 UI/UX 后，标题栏 `.left` accessory 位置、普通 split item + thin divider + plain outline、0.22 秒折叠/展开动画和源码左右 28 pt 边距共 3 项聚焦测试通过；Xcode toolchain 构建通过。完整 77 项测试中 76 项通过，唯一失败仍是既有 2 MB / 5 万行 WebKit 完整预览 30 秒超时；源码视口同步和局部高亮性能用例通过。
