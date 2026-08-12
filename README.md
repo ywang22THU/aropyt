@@ -73,7 +73,7 @@ macOS 上的本地 Markdown 编辑器，使用 Swift + AppKit 开发，纯 Swift
 | `WorkspaceFileSystem.swift` | 目录读取和创建 / 重命名 / 删除的落盘层；目录优先排序，并过滤掉隐藏项、符号链接和非 `.md` 文件。 |
 | `WorkspaceTreeModel.swift` | 文件树节点与逐层懒加载缓存；刷新时使目标子树缓存失效。 |
 | `WorkspaceSidebarViewController.swift` | `NSOutlineView` 文件树、左键选择/展开，以及带分隔区域的动态右键菜单。 |
-| `WorkspaceContainerViewController.swift` | 左侧目录树 + 右侧编辑器的 split view，负责侧边栏收起/展开和 toast。 |
+| `WorkspaceContainerViewController.swift` | 左侧目录树 + 右侧编辑器的 split view，负责侧边栏动画收起 / 展开。 |
 
 ### `Sources/AropytEditor/Highlighter/`
 

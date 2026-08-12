@@ -1,6 +1,8 @@
 import AppKit
 
 final class WorkspaceSidebarViewController: NSViewController {
+    static let leadingContentInset: CGFloat = 10
+
     let model: WorkspaceTreeModel
     let outlineView = WorkspaceOutlineView()
 
@@ -60,6 +62,12 @@ final class WorkspaceSidebarViewController: NSViewController {
         scrollView.autohidesScrollers = true
         scrollView.drawsBackground = true
         scrollView.borderType = .noBorder
+        scrollView.contentInsets = NSEdgeInsets(
+            top: 0,
+            left: Self.leadingContentInset,
+            bottom: 0,
+            right: 0
+        )
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         rootView.addSubview(scrollView)
         NSLayoutConstraint.activate([
@@ -70,6 +78,11 @@ final class WorkspaceSidebarViewController: NSViewController {
         ])
 
         view = rootView
+    }
+
+    var sidebarContentInsets: NSEdgeInsets {
+        _ = view
+        return scrollView.contentInsets
     }
 
     override func viewDidAppear() {

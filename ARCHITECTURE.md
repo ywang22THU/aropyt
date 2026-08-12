@@ -40,7 +40,7 @@ aropyt/
 │       │   ├── WorkspaceFileSystem.swift     # 过滤、校验和磁盘操作
 │       │   ├── WorkspaceTreeModel.swift      # 懒加载树模型
 │       │   ├── WorkspaceSidebarViewController.swift # NSOutlineView + 右键菜单
-│       │   └── WorkspaceContainerViewController.swift # split view + toast
+│       │   └── WorkspaceContainerViewController.swift # split view + 折叠动画
 │       ├── Highlighter/
 │       │   └── MarkdownHighlighter.swift    # 简单正则语法高亮
 │       ├── Settings/                        # ⌘, 打开的设置窗口

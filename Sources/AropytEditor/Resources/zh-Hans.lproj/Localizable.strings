@@ -170,8 +170,6 @@
 "workspace.open_error.title" = "无法打开目录";
 "workspace.operation_error.title" = "目录操作失败";
 "workspace.sidebar.title" = "文件";
-"workspace.sidebar.toast.shown" = "侧边栏已展开";
-"workspace.sidebar.toast.hidden" = "侧边栏已收起";
 "toolbar.sidebar.show" = "展开侧边栏";
 "toolbar.sidebar.hide" = "收起侧边栏";
 "workspace.menu.open_new_window" = "在新窗口中打开";

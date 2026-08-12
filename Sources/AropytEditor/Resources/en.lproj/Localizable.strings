@@ -170,8 +170,6 @@
 "workspace.open_error.title" = "Could Not Open Directory";
 "workspace.operation_error.title" = "Workspace Operation Failed";
 "workspace.sidebar.title" = "Files";
-"workspace.sidebar.toast.shown" = "Sidebar shown";
-"workspace.sidebar.toast.hidden" = "Sidebar hidden";
 "toolbar.sidebar.show" = "Show Sidebar";
 "toolbar.sidebar.hide" = "Hide Sidebar";
 "workspace.menu.open_new_window" = "Open in New Window";

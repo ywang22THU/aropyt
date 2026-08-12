@@ -332,8 +332,10 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         )
         button.identifier = NSUserInterfaceItemIdentifier("workspace.sidebar.toggle")
 
-        let holder = NSView(frame: NSRect(x: 0, y: 0, width: 40, height: 28))
-        button.frame = NSRect(x: 4, y: 0, width: 32, height: 28)
+        let chromeHeight = max(28, window.frame.height - window.contentLayoutRect.height)
+        let holder = NSView(frame: NSRect(x: 0, y: 0, width: 40, height: chromeHeight))
+        button.frame = NSRect(x: 4, y: (chromeHeight - 28) / 2, width: 32, height: 28)
+        button.autoresizingMask = [.minYMargin, .maxYMargin]
         holder.addSubview(button)
 
         let accessory = NSTitlebarAccessoryViewController()

@@ -43,7 +43,7 @@ swift run AropytEditor
 - `Sources/AropytEditor/Window/FindBarView.swift`：源码 / 预览共用的悬浮查找 / 替换栏，以及全文查找和替换结果模型。
 - `Sources/AropytEditor/Window/SourceViewController.swift`：源码模式，TextKit 非连续布局、可见区优先和后台分批正则高亮。
 - `Sources/AropytEditor/Window/PreviewViewController.swift`：预览模式，`WKWebView` 渐进渲染、dirty / flush 状态、JS bridge、本地资源 scheme、链接和格式化命令。
-- `Sources/AropytEditor/Workspace/`：打开目录工作区。`WorkspaceFileSystem` 负责过滤与真实磁盘操作，`WorkspaceTreeModel` 提供懒加载树，`WorkspaceSidebarViewController` 提供文件树和右键菜单，`WorkspaceContainerViewController` 提供左右 split view 与侧边栏 toast。
+- `Sources/AropytEditor/Workspace/`：打开目录工作区。`WorkspaceFileSystem` 负责过滤与真实磁盘操作，`WorkspaceTreeModel` 提供懒加载树，`WorkspaceSidebarViewController` 提供文件树和右键菜单，`WorkspaceContainerViewController` 提供左右 split view 与折叠动画。
 - `Sources/AropytEditor/Highlighter/MarkdownHighlighter.swift`：支持范围高亮与段落范围扩展，并给 Markdown 链接设置 `.link` attribute。
 - `Sources/AropytEditor/AutoSave/`：`AutoSavePreferences` 和按文档串行合并请求的 `AutoSaveManager`。
 - `Sources/AropytEditor/Settings/`：Settings 窗口、General 启动行为与自动保存、Shortcuts、Theme、Syntax Preferences、About。
@@ -82,8 +82,9 @@ swift run AropytEditor
 - 文件树按目录优先排序，保留目录但仅显示 `.md` 文件；每一级在展开时才读取磁盘，刷新会丢弃目标目录的缓存并重新加载。
 - 点击目录会展开，点击 Markdown 文件会在同一窗口右侧复用当前 `MarkdownDocument`；切换前先 flush 预览，并通过 `NSDocument.canClose` 处理未保存内容。
 - 侧边栏右键菜单分为“新窗口打开｜新建 Markdown 文件/文件夹｜重命名/删除｜刷新｜访达显示/复制路径”，目录专属区域不会出现在文件菜单；删除使用确认 sheet，文件系统操作直接落盘。
-- 侧边栏按钮仅在目录模式以 `.left` 的 `NSTitlebarAccessoryViewController` 插入，保证位于红绿灯右侧、文件标题左侧；展开/收起使用不同 SF Symbol，并在内容区显示短暂 toast。
+- 侧边栏按钮仅在目录模式以 `.left` 的 `NSTitlebarAccessoryViewController` 插入，保证位于红绿灯右侧、文件标题左侧；按钮按窗口顶部 chrome 的实际高度纵向居中，展开/收起使用不同 SF Symbol，不显示 toast。
 - 目录树使用普通 `NSSplitViewItem` 和 `.plain` outline 样式，不使用悬浮 sidebar 外观；左右区域之间只有 `.thin` 纵向分割线，折叠和展开使用 0.22 秒隐式动画。
+- 目录树的 `NSScrollView.contentInsets.left` 为 10 pt，使根目录节点和 disclosure indicator 不会紧贴左边框。
 - 活动文件或其父目录被重命名时同步更新 `document.fileURL`；被删除时清空活动文档，避免随后保存回已删除路径。
 
 ### 源码 / 预览同步
@@ -162,7 +163,7 @@ swift run AropytEditor
 - 源码 / 预览模式切换时双向同步视窗位置。
 - Cmd+F 全文查找、Cmd+R 直接打开替换、替换当前项 / 全部替换，以及 Cmd+G / Cmd+Shift+G 前后循环跳转；同时支持源码与预览模式。
 - File → 重新加载（Cmd+L）从磁盘刷新当前文档；存在未保存源码修改或未 flush 的预览修改时拒绝执行。
-- File → 打开目录：左侧懒加载 `.md` 文件树、同窗文件切换、标题栏侧边栏按钮与 toast，以及分组右键菜单（新窗口打开、新建、重命名、确认删除、刷新、访达显示、复制路径）。
+- File → 打开目录：左侧懒加载 `.md` 文件树、同窗文件切换、标题栏侧边栏按钮，以及分组右键菜单（新窗口打开、新建、重命名、确认删除、刷新、访达显示、复制路径）。
 - 打包脚本 `package.sh`，可生成 `.app` 和 DMG/PKG。
 
 待实现 / 待完善：
@@ -176,6 +177,7 @@ swift run AropytEditor
 
 最近一次已知验证：
 
+- 2026-08-12：移除侧边栏切换 toast、按窗口顶部 chrome 动态纵向居中标题栏按钮，并给目录树根节点增加 10 pt 左侧 inset 后，工作区窗口 2 项聚焦测试通过；Xcode toolchain 构建通过。完整 77 项测试中 76 项通过，唯一失败仍是既有 2 MB / 5 万行 WebKit 完整预览 30 秒超时；源码视口同步和局部高亮性能用例通过。
 - 2026-08-12：修正目录工作区 UI/UX 后，标题栏 `.left` accessory 位置、普通 split item + thin divider + plain outline、0.22 秒折叠/展开动画和源码左右 28 pt 边距共 3 项聚焦测试通过；Xcode toolchain 构建通过。完整 77 项测试中 76 项通过，唯一失败仍是既有 2 MB / 5 万行 WebKit 完整预览 30 秒超时；源码视口同步和局部高亮性能用例通过。
 - 2026-08-12：新增打开目录工作区后，目录过滤/排序/刷新/落盘操作、菜单分组与目录专属项、删除确认、目录展开/同窗文件加载、活动路径同步、新窗口动作/复制路径、标题栏按钮/状态 icon/toast 共 15 项聚焦测试通过；Xcode toolchain 构建通过。完整 76 项测试中 75 项通过；唯一失败仍是既有 2 MB / 5 万行 WebKit 渐进预览用例（首批约 1.046 秒、略超 1 秒门槛，完整预览仍于 30 秒超时）；本轮局部高亮性能用例通过。
 - 2026-08-12：新增应用启动行为设置后，偏好、General UI、启动选择、失败回退和关闭文件记录共 11 项聚焦测试通过。完整 61 项测试中 59 项通过；既有 2 MB / 5 万行 WebKit 渐进预览用例仍超时，既有局部高亮性能用例在当前机器为约 52 ms、略超 50 ms 门槛。
