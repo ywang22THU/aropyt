@@ -6,6 +6,27 @@ import Testing
 @Suite("Workspace sidebar")
 @MainActor
 struct WorkspaceSidebarTests {
+    @Test func rootItemIsActuallyRenderedAwayFromLeftBorder() throws {
+        _ = NSApplication.shared
+        let root = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let controller = try WorkspaceSidebarViewController(rootURL: root)
+        controller.view.frame = NSRect(x: 0, y: 0, width: 250, height: 500)
+        controller.view.layoutSubtreeIfNeeded()
+        controller.outlineView.reloadData()
+
+        let rootRow = controller.outlineView.row(forItem: controller.model.root)
+        #expect(rootRow == 0)
+        guard rootRow >= 0 else { return }
+        let disclosureFrame = controller.outlineView.frameOfOutlineCell(atRow: rootRow)
+        let disclosureOrigin = controller.outlineView.convert(
+            disclosureFrame.origin,
+            to: controller.view
+        )
+
+        #expect(disclosureOrigin.x >= WorkspaceSidebarViewController.leadingContentInset)
+    }
+
     @Test func directoryMenuUsesRequestedGroups() throws {
         _ = NSApplication.shared
         let root = try makeTemporaryDirectory()

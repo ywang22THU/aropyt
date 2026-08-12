@@ -36,7 +36,9 @@ final class WorkspaceSidebarViewController: NSViewController {
     }
 
     override func loadView() {
-        let rootView = NSView(frame: NSRect(x: 0, y: 0, width: 250, height: 720))
+        let rootView = WorkspaceSidebarBackgroundView(
+            frame: NSRect(x: 0, y: 0, width: 250, height: 720)
+        )
 
         let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("workspace.name"))
         column.title = L10n.tr("workspace.sidebar.title", "Files")
@@ -61,28 +63,21 @@ final class WorkspaceSidebarViewController: NSViewController {
         scrollView.hasHorizontalScroller = false
         scrollView.autohidesScrollers = true
         scrollView.drawsBackground = true
+        scrollView.backgroundColor = .controlBackgroundColor
         scrollView.borderType = .noBorder
-        scrollView.contentInsets = NSEdgeInsets(
-            top: 0,
-            left: Self.leadingContentInset,
-            bottom: 0,
-            right: 0
-        )
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         rootView.addSubview(scrollView)
         NSLayoutConstraint.activate([
-            scrollView.leadingAnchor.constraint(equalTo: rootView.leadingAnchor),
+            scrollView.leadingAnchor.constraint(
+                equalTo: rootView.leadingAnchor,
+                constant: Self.leadingContentInset
+            ),
             scrollView.trailingAnchor.constraint(equalTo: rootView.trailingAnchor),
             scrollView.topAnchor.constraint(equalTo: rootView.topAnchor),
             scrollView.bottomAnchor.constraint(equalTo: rootView.bottomAnchor),
         ])
 
         view = rootView
-    }
-
-    var sidebarContentInsets: NSEdgeInsets {
-        _ = view
-        return scrollView.contentInsets
     }
 
     override func viewDidAppear() {
@@ -450,5 +445,12 @@ final class WorkspaceOutlineView: NSOutlineView {
             selectRowIndexes(IndexSet(integer: clickedRow), byExtendingSelection: false)
         }
         return super.menu(for: event)
+    }
+}
+
+private final class WorkspaceSidebarBackgroundView: NSView {
+    override func draw(_ dirtyRect: NSRect) {
+        NSColor.controlBackgroundColor.setFill()
+        dirtyRect.fill()
     }
 }

@@ -84,7 +84,7 @@ swift run AropytEditor
 - 侧边栏右键菜单分为“新窗口打开｜新建 Markdown 文件/文件夹｜重命名/删除｜刷新｜访达显示/复制路径”，目录专属区域不会出现在文件菜单；删除使用确认 sheet，文件系统操作直接落盘。
 - 侧边栏按钮仅在目录模式以 `.left` 的 `NSTitlebarAccessoryViewController` 插入，保证位于红绿灯右侧、文件标题左侧；按钮按窗口顶部 chrome 的实际高度纵向居中，展开/收起使用不同 SF Symbol，不显示 toast。
 - 目录树使用普通 `NSSplitViewItem` 和 `.plain` outline 样式，不使用悬浮 sidebar 外观；左右区域之间只有 `.thin` 纵向分割线，折叠和展开使用 0.22 秒隐式动画。
-- 目录树的 `NSScrollView.contentInsets.left` 为 10 pt，使根目录节点和 disclosure indicator 不会紧贴左边框。
+- 目录树的整个 `NSScrollView` 通过布局约束与左边框保持 10 pt 距离（不能用 `contentInsets`，它不会可靠移动根级 disclosure/cell），使根目录节点和展开箭头不会紧贴左边框；空白区域与 scroll view 都绘制 `controlBackgroundColor`。
 - 活动文件或其父目录被重命名时同步更新 `document.fileURL`；被删除时清空活动文档，避免随后保存回已删除路径。
 
 ### 源码 / 预览同步
@@ -177,6 +177,7 @@ swift run AropytEditor
 
 最近一次已知验证：
 
+- 2026-08-12：修复目录树根节点仍贴左边框的问题后，测试直接读取根行 disclosure indicator 的实际渲染坐标，确认其与侧边栏左边框至少相距 10 pt；工作区侧边栏 8 项、工作区窗口 2 项聚焦测试通过。完整 78 项测试中 76 项通过：既有 2 MB / 5 万行 WebKit 完整预览仍于 30 秒超时，本轮普通文档视口同步用例也超时；后者单独复跑仍失败，与本次仅涉及侧边栏布局的改动无代码交集。
 - 2026-08-12：移除侧边栏切换 toast、按窗口顶部 chrome 动态纵向居中标题栏按钮，并给目录树根节点增加 10 pt 左侧 inset 后，工作区窗口 2 项聚焦测试通过；Xcode toolchain 构建通过。完整 77 项测试中 76 项通过，唯一失败仍是既有 2 MB / 5 万行 WebKit 完整预览 30 秒超时；源码视口同步和局部高亮性能用例通过。
 - 2026-08-12：修正目录工作区 UI/UX 后，标题栏 `.left` accessory 位置、普通 split item + thin divider + plain outline、0.22 秒折叠/展开动画和源码左右 28 pt 边距共 3 项聚焦测试通过；Xcode toolchain 构建通过。完整 77 项测试中 76 项通过，唯一失败仍是既有 2 MB / 5 万行 WebKit 完整预览 30 秒超时；源码视口同步和局部高亮性能用例通过。
 - 2026-08-12：新增打开目录工作区后，目录过滤/排序/刷新/落盘操作、菜单分组与目录专属项、删除确认、目录展开/同窗文件加载、活动路径同步、新窗口动作/复制路径、标题栏按钮/状态 icon/toast 共 15 项聚焦测试通过；Xcode toolchain 构建通过。完整 76 项测试中 75 项通过；唯一失败仍是既有 2 MB / 5 万行 WebKit 渐进预览用例（首批约 1.046 秒、略超 1 秒门槛，完整预览仍于 30 秒超时）；本轮局部高亮性能用例通过。

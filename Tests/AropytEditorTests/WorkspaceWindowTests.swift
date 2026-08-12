@@ -38,9 +38,6 @@ struct WorkspaceWindowTests {
         )
         #expect(abs(accessory.view.bounds.height - chromeHeight) < 0.5)
         #expect(abs(sidebarButton.frame.midY - accessory.view.bounds.midY) < 0.5)
-        #expect(container.sidebarViewController.sidebarContentInsets.left
-            == WorkspaceSidebarViewController.leadingContentInset)
-
         windowController.openWorkspaceFile(at: fileURL)
         #expect(document.fileURL == fileURL.standardizedFileURL)
         #expect(document.text == "# Selected")
