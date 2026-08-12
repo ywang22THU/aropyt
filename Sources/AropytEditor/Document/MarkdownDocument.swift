@@ -171,6 +171,16 @@ final class MarkdownDocument: NSDocument {
         self.updateChangeCount(.changeDone)
     }
 
+    /// Synchronizes an edit already tracked by NSTextView or WKWebView. Those
+    /// views own the undo operation so AppKit/WebKit can restore their native
+    /// selection and insertion-point state. Registering another whole-document
+    /// undo here would run first and reload the view, discarding that state.
+    func synchronizeTextFromEditingView(_ newText: String) {
+        guard text != newText else { return }
+        text = newText
+        updateChangeCount(.changeDone)
+    }
+
     /// Saves an already-flushed document without opening a save panel. Untitled
     /// documents remain pending until the user chooses a location explicitly.
     func saveThroughCoordinator(completion: @escaping (Bool) -> Void) {

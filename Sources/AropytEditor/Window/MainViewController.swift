@@ -64,7 +64,7 @@ final class MainViewController: NSViewController, NSMenuItemValidation {
             guard let self, let doc = self.document else { return }
             guard doc.text != newText else { return }
             // 用户在源码模式下打字 → 同步到 document
-            doc.updateText(newText, actionName: "Edit")
+            doc.synchronizeTextFromEditingView(newText)
             AutoSaveManager.shared.contentDidChange(in: doc)
         }
         findBar.onQueryChanged = { [weak self] _ in self?.performFind(.initial) }
@@ -249,7 +249,7 @@ final class MainViewController: NSViewController, NSMenuItemValidation {
                 // 标记 isApplyingFromPreview，让 documentTextChangedExternally 跳过对
                 // webview 的回流刷新（否则 loadHTMLString 会让光标 + 滚动位置全丢）
                 self.isApplyingFromPreview = true
-                doc.updateText(newText, actionName: "Edit")
+                doc.synchronizeTextFromEditingView(newText)
                 self.isApplyingFromPreview = false
                 AutoSaveManager.shared.contentDidChange(in: doc)
             }
@@ -485,7 +485,7 @@ final class MainViewController: NSViewController, NSMenuItemValidation {
             case .success(let markdown):
                 if let markdown, let document = self.document {
                     self.isApplyingFromPreview = true
-                    document.updateText(markdown, actionName: "Edit")
+                    document.synchronizeTextFromEditingView(markdown)
                     self.isApplyingFromPreview = false
                 }
                 self.finishPreparation(succeeded: true)

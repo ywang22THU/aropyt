@@ -31,6 +31,26 @@ final class SourceViewController: NSViewController, NSTextViewDelegate {
         return textView?.string ?? ""
     }
 
+    var editorSelectedRange: NSRange {
+        _ = view
+        return textView?.selectedRange() ?? NSRange(location: 0, length: 0)
+    }
+
+    var editorUndoManager: UndoManager? {
+        _ = view
+        return textView?.undoManager
+    }
+
+    func setEditorSelectedRange(_ range: NSRange) {
+        _ = view
+        textView?.setSelectedRange(range)
+    }
+
+    func insertEditorText(_ text: String) {
+        _ = view
+        textView?.insertText(text, replacementRange: editorSelectedRange)
+    }
+
     override func loadView() {
         let scroll = NSScrollView()
         scroll.hasVerticalScroller = true
