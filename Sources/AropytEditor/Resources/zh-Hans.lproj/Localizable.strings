@@ -80,6 +80,7 @@
 "settings.tabs.shortcuts" = "快捷键";
 "settings.tabs.theme" = "主题";
 "settings.tabs.syntax" = "语法偏好";
+"settings.tabs.image" = "图像";
 "settings.tabs.about" = "关于";
 "settings.theme.title" = "外观";
 "settings.theme.option.system" = "跟随系统";
@@ -111,6 +112,13 @@
 "settings.syntax.code_block.title" = "代码块";
 "settings.syntax.code_block.line_numbers" = "显示行号";
 "settings.syntax.code_block.line_wrapping" = "自动换行";
+"settings.image.title" = "图像";
+"settings.image.destination.title" = "插入图片位置";
+"settings.image.destination.original_path" = "原路径（不复制）";
+"settings.image.destination.current_directory" = "粘贴到当前目录（./）";
+"settings.image.destination.resource_directory" = "粘贴到资源目录（./assets/）";
+"settings.image.resource_directory_name" = "资源目录名称";
+"settings.image.escape_urls" = "插入时自动转义图片 URL";
 
 "preview.render.progress" = "正在渲染预览… %d / %d 个内容块";
 "preview.render.complete" = "预览渲染完成";

@@ -11,7 +11,7 @@ struct SyntaxSettingsUITests {
         _ = controller.view
 
         let table = try #require(firstSubview(of: NSTableView.self, in: controller.view))
-        #expect(table.numberOfRows == 5)
+        #expect(table.numberOfRows == 6)
         let cell = try #require(
             table.view(atColumn: 0, row: 3, makeIfNecessary: true) as? NSTableCellView
         )

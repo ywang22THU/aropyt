@@ -80,6 +80,7 @@
 "settings.tabs.shortcuts" = "Shortcuts";
 "settings.tabs.theme" = "Theme";
 "settings.tabs.syntax" = "Syntax Preferences";
+"settings.tabs.image" = "Images";
 "settings.tabs.about" = "About";
 "settings.theme.title" = "Appearance";
 "settings.theme.option.system" = "Follow System";
@@ -111,6 +112,13 @@
 "settings.syntax.code_block.title" = "Code Blocks";
 "settings.syntax.code_block.line_numbers" = "Show line numbers";
 "settings.syntax.code_block.line_wrapping" = "Automatic line wrapping";
+"settings.image.title" = "Images";
+"settings.image.destination.title" = "Insert Image Location";
+"settings.image.destination.original_path" = "Original path (do not copy)";
+"settings.image.destination.current_directory" = "Copy to current directory (./)";
+"settings.image.destination.resource_directory" = "Copy to resource directory (./assets/)";
+"settings.image.resource_directory_name" = "Resource Directory Name";
+"settings.image.escape_urls" = "Automatically escape image URLs when inserting";
 
 "preview.render.progress" = "Rendering preview… %d of %d blocks";
 "preview.render.complete" = "Preview complete";
