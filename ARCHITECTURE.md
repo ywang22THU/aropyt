@@ -27,6 +27,7 @@ aropyt/
 │   └── AropytEditor/                  # App 主体 target
 │       ├── main.swift                 # 入口
 │       ├── AppDelegate.swift
+│       ├── ApplicationLaunchCoordinator.swift # 启动文档选择与失败回退
 │       ├── AppDocumentController.swift
 │       ├── Document/
 │       │   └── MarkdownDocument.swift # NSDocument 子类，单一数据源
@@ -38,6 +39,7 @@ aropyt/
 │       ├── Highlighter/
 │       │   └── MarkdownHighlighter.swift    # 简单正则语法高亮
 │       ├── Settings/                        # ⌘, 打开的设置窗口
+│       │   ├── ApplicationLaunchPreferences.swift # 启动行为持久化
 │       │   ├── SettingsWindowController.swift
 │       │   ├── SettingsTabViewController.swift  # 左 sidebar + 右 container
 │       │   ├── ShortcutsTabViewController.swift # 录制 / 改绑快捷键
@@ -126,6 +128,12 @@ tv.textContainer?.containerSize = NSSize(width: scroll.contentSize.width, height
    - Mermaid 容器保留原始图表源码，并用独立工具栏直接调整 SVG `viewBox` 来维护 50%–500% 矢量缩放与拖动平移，避免 CSS transform 合成层放大后模糊；SVG 通过 WebKit message handler 交给原生保存面板导出
    - Turndown 回写 Mermaid 容器时恢复为 `mermaid` fenced code block，避免交互控件和 SVG 污染 Markdown
 2. WebView 用 `loadHTMLString(_:baseURL:)`，baseURL 指向 Resources 目录，让 `<script src>` 和图片相对路径生效。
+
+### 7. 应用启动文档
+
+`ApplicationLaunchPreferences` 保存三种启动行为：创建新文档、重新打开上次关闭的文档、打开指定文档。`MarkdownDocument.close()` 记录最后关闭的文件路径；untitled 关闭时清空旧记录。
+
+`applicationShouldOpenUntitledFile` 只在 AppKit 原本准备创建启动文档时调用 `ApplicationLaunchCoordinator`，因此双击文件或 `open` 命令仍走系统文档打开流程。目标文件不存在、不可读或打开失败时统一回退创建 untitled。
 
 ## P1 设计草图（不在本次实现范围）
 

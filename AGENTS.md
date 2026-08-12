@@ -13,12 +13,7 @@
 
 ## 最近一次 /goal input
 
-在设置的“通用”里面增加一个功能 item：“应用启动时行为”，是一个单选框，可选项目时：
-1. 创建新文件（默认，打开时候就创建一个 untitled）
-2. 重新打开上次关闭时的文件（如果错误，例如初次使用、文件不存在等，回退到 1）
-3. 打开指定的文件
-
-写完了 commit
+无。当前没有进行中的 goal；已完成 goal 的结果已沉淀到下面的项目进展中。
 
 ## 项目概况
 
@@ -40,6 +35,7 @@ swift run AropytEditor
 - `Sources/MarkdownCore/`：纯 Swift 逻辑，不引入 AppKit。`LongDocumentPolicy.swift` 定义 512 KiB / 1 万行阈值；`MarkdownRenderer.swift` 生成普通或渐进预览 HTML。
 - `Sources/AropytEditor/main.swift`：程序入口。第一行必须 `_ = AppDocumentController()`，保证裸跑时 `NSDocumentController.shared` 是自定义 controller。
 - `Sources/AropytEditor/AppDelegate.swift`：安装菜单栏、应用启动/退出行为、动态应用快捷键配置。
+- `Sources/AropytEditor/ApplicationLaunchCoordinator.swift`：根据通用设置选择启动文档，目标文件无效或打开失败时回退新建 untitled。
 - `Sources/AropytEditor/AppDocumentController.swift`：自定义 `NSDocumentController`，硬编码 Markdown 文档类型、document class、Open panel 文件类型。
 - `Sources/AropytEditor/Document/MarkdownDocument.swift`：`NSDocument` 子类，文档文本的单一数据源。负责读写、undo、变更通知。
 - `Sources/AropytEditor/Window/EditorWindowController.swift`：窗口和 toolbar。用显式 `setup(document:)` 初始化，不依赖 `windowDidLoad`。
@@ -49,7 +45,7 @@ swift run AropytEditor
 - `Sources/AropytEditor/Window/PreviewViewController.swift`：预览模式，`WKWebView` 渐进渲染、dirty / flush 状态、JS bridge、本地资源 scheme、链接和格式化命令。
 - `Sources/AropytEditor/Highlighter/MarkdownHighlighter.swift`：支持范围高亮与段落范围扩展，并给 Markdown 链接设置 `.link` attribute。
 - `Sources/AropytEditor/AutoSave/`：`AutoSavePreferences` 和按文档串行合并请求的 `AutoSaveManager`。
-- `Sources/AropytEditor/Settings/`：Settings 窗口、General 自动保存、Shortcuts、Theme、Syntax Preferences、About。
+- `Sources/AropytEditor/Settings/`：Settings 窗口、General 启动行为与自动保存、Shortcuts、Theme、Syntax Preferences、About。
 - `Sources/AropytEditor/Resources/`：`marked.umd.js`、`highlight.min.js`、`katex.min.js`、`auto-render.min.js`、`katex.min.css`、`fonts/` KaTeX woff2 字体、`mermaid.min.js`、`turndown.js`、`turndown-plugin-gfm.js`、GitHub CSS 主题、`Info.plist`。
 - `package.sh`：release build、组装 `.app`、ad-hoc 签名、生成 DMG/PKG。
 - `README.md`：功能、目录、构建、打包说明。
@@ -74,6 +70,7 @@ swift run AropytEditor
 ### 初始化和窗口
 
 - 裸跑 `.build/debug/AropytEditor` 不是 `.app` bundle，因此必须在 `main.swift` 第一行实例化 `AppDocumentController`。
+- General 可配置启动时创建新文件、重新打开上次关闭的文件或打开指定文件，默认创建新文件；`MarkdownDocument.close()` 记录上次关闭路径，任何恢复错误都回退创建 untitled。
 - `EditorWindowController` 通过 `init(window:)` 创建窗口，不能依赖 `windowDidLoad`。
 - `MarkdownDocument.makeWindowControllers()` 中先 `addWindowController(wc)`，再显式调用 `wc.setup(document: self)`。
 - `EditorWindowController.setup(document:)` 会显式触发 `MainViewController.view` 加载，再 `reloadFromDocument()`，避免首次打开文件时 source view 尚未创建。
@@ -148,6 +145,7 @@ swift run AropytEditor
 - 超长 Markdown 源码增量高亮与预览渐进加载（目标 2 MB / 5 万行）。
 - 长文档预览 dirty / 异步 flush 与保存、关闭、退出一致性保护。
 - General 自动保存设置：On Change、After Delay、Never。
+- General 应用启动行为设置：默认创建新文件，也可恢复上次关闭文件或打开指定文件，失败时回退新建。
 - Swift Testing 单元与 WebKit 集成测试套件。
 - 源码 / 预览模式切换时双向同步视窗位置。
 - Cmd+F 全文查找、Cmd+R 直接打开替换、替换当前项 / 全部替换，以及 Cmd+G / Cmd+Shift+G 前后循环跳转；同时支持源码与预览模式。
@@ -165,6 +163,7 @@ swift run AropytEditor
 
 最近一次已知验证：
 
+- 2026-08-12：新增应用启动行为设置后，偏好、General UI、启动选择、失败回退和关闭文件记录共 11 项聚焦测试通过。完整 61 项测试中 59 项通过；既有 2 MB / 5 万行 WebKit 渐进预览用例仍超时，既有局部高亮性能用例在当前机器为约 52 ms、略超 50 ms 门槛。
 - 2026-08-12：新增 `math` fenced code block、代码行号和自动换行语法偏好后，Xcode toolchain 构建通过；默认值/持久化、设置 UI、数学代码块渲染与回写、代码行号/折行/横向滚动及回写测试通过。完整 50 项测试中 49 项通过，既有 2 MB / 5 万行 WebKit 渐进预览用例仍于 30 秒超时。
 - 2026-08-12：新增数学公式元数据回写和 Syntax Preferences 后，Xcode toolchain 构建通过；美元公式回写、反斜杠公式开关、偏好持久化和设置 UI 共 10 项聚焦测试通过。完整 47 项测试中 46 项通过，既有 2 MB / 5 万行 WebKit 渐进预览用例仍于 30 秒超时。
 - 2026-08-11：新增磁盘重新加载与冲突保护后，Xcode toolchain 构建通过；重新加载、未保存修改冲突和未命名文档 3 项测试通过。

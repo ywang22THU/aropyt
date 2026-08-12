@@ -6,6 +6,8 @@ import MarkdownCore
 /// 必须写 `Swift.print(...)`。
 final class MarkdownDocument: NSDocument {
 
+    var applicationLaunchPreferences = ApplicationLaunchPreferences.shared
+
     enum ReloadFromDiskError: LocalizedError {
         case noFileURL
         case unsavedChanges
@@ -46,6 +48,11 @@ final class MarkdownDocument: NSDocument {
     /// Saving is coordinated by AutoSaveManager so dirty preview DOM is flushed
     /// before any bytes are written.
     override class var autosavesInPlace: Bool { false }
+
+    override func close() {
+        applicationLaunchPreferences.lastClosedFileURL = fileURL
+        super.close()
+    }
 
     var isLongDocument: Bool {
         LongDocumentPolicy.isLongDocument(text)

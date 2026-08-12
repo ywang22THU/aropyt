@@ -16,7 +16,7 @@ macOS 上的本地 Markdown 编辑器，使用 Swift + AppKit 开发，纯 Swift
 -   预览模式下的所见即所得编辑（基于 contenteditable + turndown 反向生成 markdown）
 -   预览模式 Cmd+点击 链接由系统浏览器打开
 -   `Cmd+F` 全文查找、`Cmd+R` 展开替换，支持替换当前项 / 全部替换，以及 `Cmd+G` / `Cmd+Shift+G` 跳转匹配项（源码与预览模式）
--   Settings 窗口（`Cmd+,`）：自定义快捷键、主题（亮 / 暗 / 跟随系统）、语法偏好、About
+-   Settings 窗口（`Cmd+,`）：应用启动行为、自动保存、自定义快捷键、主题（亮 / 暗 / 跟随系统）、语法偏好、About
 
 ### 待实现
 
@@ -47,6 +47,7 @@ macOS 上的本地 Markdown 编辑器，使用 Swift + AppKit 开发，纯 Swift
 | --- | --- |
 | `main.swift` | 程序入口。**第一行必须 `_ = AppDocumentController()`** —— 让 `NSDocumentController.shared` 返回我们的子类。然后构造 NSApp、设置 delegate、`run()`。 |
 | `AppDelegate.swift` | NSApplicationDelegate。负责安装菜单栏（App / File / Edit / View / Window 五组）、决定最后窗口关闭时是否退出、决定启动时是否自动开 untitled 窗口。**想加菜单项 / 快捷键时改这里。** |
+| `ApplicationLaunchCoordinator.swift` | 根据 General 中的启动行为决定创建 untitled 或打开目标文件；目标无效或打开失败时回退到 untitled。 |
 | `AppDocumentController.swift` | NSDocumentController 子类。硬编码 `documentClassNames`、`defaultType`、`documentClass(forType:)`、`typeForContents(of:)`，绕过脱 .app bundle 时 Info.plist 不被读取的问题。同时定制 Open 面板的允许文件类型。**想改打开文件时支持的扩展名时改这里。** |
 
 ### `Sources/AropytEditor/Document/`
@@ -76,6 +77,8 @@ macOS 上的本地 Markdown 编辑器，使用 Swift + AppKit 开发，纯 Swift
 | --- | --- |
 | `SettingsWindowController.swift` | Settings 窗口的单例 NSWindowController。`Cmd+,` 通过 `AppDelegate` 触发，内容是一个 `SettingsTabViewController`。**想改设置窗口尺寸、出现行为时改这里。** |
 | `SettingsTabViewController.swift` | 左右布局的设置主界面（`NSSplitViewController`）：左侧 sidebar 列出 Shortcuts / Theme / About 三项，右侧 container 嵌入对应子 VC。**想加新的设置 tab 时改这里**（同时加对应的 tab VC）。 |
+| `ApplicationLaunchPreferences.swift` | 启动行为、上次关闭文件路径和指定文件路径的 UserDefaults 持久化与有效性检查。 |
+| `GeneralTabViewController.swift` | General tab。配置启动行为和自动保存；“打开指定的文件”通过系统文件选择面板保存目标路径。 |
 | `ShortcutsTabViewController.swift` | Shortcuts tab。`NSTableView` 列出所有可绑定 action，点击行进入录制模式捕获新组合键，检测冲突并通过 `ShortcutManager` 持久化。**想改快捷键 UI / 录制行为时改这里。** |
 | `ShortcutManager.swift` | 快捷键的数据层：`ShortcutAction` 枚举（newDocument / open / save / close / toggleMode / bold / italic / settings）+ 默认绑定 + UserDefaults 持久化 + 变更通知。`AppDelegate` 通过它给菜单项动态设置 `keyEquivalent`。**想加新的可绑定动作时改这里。** |
 | `ThemeTabViewController.swift` | Theme tab。三选一：Follow System / Light / Dark，写入 `NSApp.appearance` 并持久化。 |
@@ -125,7 +128,7 @@ swift run AropytEditor
 .build/debug/AropytEditor
 ```
 
-启动后会自动出现一个空白 Markdown 文档窗口。
+默认启动后会自动出现一个空白 Markdown 文档窗口。可在“设置 → 通用 → 应用启动时行为”改为重新打开上次关闭的文件或打开指定文件；文件无效或打开失败时仍会创建空白文档。
 
 ### 常用快捷键
 

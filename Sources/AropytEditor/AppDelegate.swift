@@ -4,6 +4,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var configurableMenuItems: [ShortcutAction: NSMenuItem] = [:]
     private var isPreparingApplicationTermination = false
+    private lazy var applicationLaunchCoordinator = ApplicationLaunchCoordinator(
+        preferences: .shared,
+        openDocument: { url, completion in
+            NSDocumentController.shared.openDocument(
+                withContentsOf: url,
+                display: true
+            ) { document, _, error in
+                completion(document != nil && error == nil)
+            }
+        },
+        createNewDocument: {
+            NSDocumentController.shared.newDocument(nil)
+        }
+    )
 
     func applicationWillFinishLaunching(_ notification: Notification) {
         AppThemePreferences.shared.apply(to: NSApp)
@@ -24,9 +38,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             name: L10n.didChangeNotification,
             object: nil
         )
-        // 不要在这里手动调 newDocument —— NSDocumentController 会通过
-        // applicationShouldOpenUntitledFile / applicationOpenUntitledFile 自动开一个，
-        // 重复调用会出现两个空白窗口。
+        // 启动文档由 applicationShouldOpenUntitledFile 统一决定；不要在这里
+        // 手动调用 newDocument，否则默认行为会出现两个空白窗口。
 
         // 从终端启动时确保应用窗口获得焦点
         NSApp.activate(ignoringOtherApps: true)
@@ -41,7 +54,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldOpenUntitledFile(_ sender: NSApplication) -> Bool {
-        return true
+        applicationLaunchCoordinator.shouldOpenUntitledFile()
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
