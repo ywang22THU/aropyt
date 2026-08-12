@@ -119,6 +119,13 @@
 "settings.image.destination.resource_directory" = "Copy to resource directory (./assets/)";
 "settings.image.resource_directory_name" = "Resource Directory Name";
 "settings.image.escape_urls" = "Automatically escape image URLs when inserting";
+"image.paste.error.title" = "Could Not Paste Image";
+"image.paste.error.not_image" = "The clipboard does not contain a supported image.";
+"image.paste.error.source_unavailable" = "The original image file is unavailable.";
+"image.paste.error.original_path_unavailable" = "This clipboard image has no original file path. Choose a copy location in Image settings to paste it.";
+"image.paste.error.unsaved_document" = "Save the Markdown document before copying images beside it.";
+"image.paste.error.create_directory" = "The image resource directory could not be created.";
+"image.paste.error.copy_failed" = "The image could not be copied to the selected location.";
 
 "preview.render.progress" = "Rendering preview… %d of %d blocks";
 "preview.render.complete" = "Preview complete";

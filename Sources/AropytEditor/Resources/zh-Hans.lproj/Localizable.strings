@@ -119,6 +119,13 @@
 "settings.image.destination.resource_directory" = "粘贴到资源目录（./assets/）";
 "settings.image.resource_directory_name" = "资源目录名称";
 "settings.image.escape_urls" = "插入时自动转义图片 URL";
+"image.paste.error.title" = "无法粘贴图片";
+"image.paste.error.not_image" = "剪贴板中没有受支持的图片。";
+"image.paste.error.source_unavailable" = "原始图片文件不可用。";
+"image.paste.error.original_path_unavailable" = "此剪贴板图片没有原始文件路径。请在图像设置中选择复制位置后再粘贴。";
+"image.paste.error.unsaved_document" = "请先保存 Markdown 文档，再把图片复制到文档旁。";
+"image.paste.error.create_directory" = "无法创建图片资源目录。";
+"image.paste.error.copy_failed" = "无法把图片复制到所选位置。";
 
 "preview.render.progress" = "正在渲染预览… %d / %d 个内容块";
 "preview.render.complete" = "预览渲染完成";
