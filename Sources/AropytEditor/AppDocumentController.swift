@@ -6,6 +6,49 @@ import UniformTypeIdentifiers
 /// 这样 NSDocumentController.shared 才会返回这个子类。
 final class AppDocumentController: NSDocumentController {
 
+    @objc func openDirectory(_ sender: Any?) {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.canCreateDirectories = false
+        panel.prompt = L10n.tr("workspace.open_panel.action", "Open")
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        openDirectory(at: url)
+    }
+
+    func openDirectory(at rootURL: URL) {
+        let rootURL = rootURL.standardizedFileURL
+        if let existing = documents.first(where: {
+            ($0 as? MarkdownDocument)?.workspaceRootURL == rootURL
+        }) {
+            existing.showWindows()
+            existing.windowControllers.first?.window?.makeKeyAndOrderFront(nil)
+            return
+        }
+
+        var createdDocument: MarkdownDocument?
+        do {
+            guard let type = defaultType,
+                  let document = try makeUntitledDocument(ofType: type) as? MarkdownDocument else {
+                throw CocoaError(.fileReadUnknown)
+            }
+            createdDocument = document
+            addDocument(document)
+            document.makeWindowControllers()
+            guard let windowController = document.windowControllers.first as? EditorWindowController else {
+                document.close()
+                throw CocoaError(.fileReadUnknown)
+            }
+            try windowController.openDirectory(at: rootURL)
+            document.showWindows()
+            closeEmptyUntitled(except: document)
+        } catch {
+            createdDocument?.close()
+            presentDirectoryOpenError(error)
+        }
+    }
+
     override var documentClassNames: [String] {
         return ["AropytEditor.MarkdownDocument"]
     }
@@ -53,9 +96,16 @@ final class AppDocumentController: NSDocumentController {
         for d in self.documents {
             if d === keepDoc { continue }
             guard let md = d as? MarkdownDocument else { continue }
+            guard md.workspaceRootURL == nil else { continue }
             if md.fileURL == nil && md.text.isEmpty && !md.isDocumentEdited {
                 md.close()
             }
         }
+    }
+
+    private func presentDirectoryOpenError(_ error: Error) {
+        let alert = NSAlert(error: error)
+        alert.messageText = L10n.tr("workspace.open_error.title", "Could Not Open Directory")
+        alert.runModal()
     }
 }

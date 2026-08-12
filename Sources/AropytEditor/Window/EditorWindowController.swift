@@ -8,9 +8,17 @@ import AppKit
 final class EditorWindowController: NSWindowController, NSWindowDelegate {
 
     private var mainVC: MainViewController?
+    private(set) var workspaceContainer: WorkspaceContainerViewController?
     private var isObservingToolbarLocalizationChanges = false
     private var closePreparationRunning = false
     private var allowsNextClose = false
+    private var isEditorBusy = false
+    private var workspaceTransitionRunning = false
+    private var pendingWorkspaceFileURL: URL?
+
+    var workspaceRootURL: URL? {
+        workspaceContainer?.sidebarViewController.model.fileSystem.rootURL
+    }
 
     convenience init() {
         let style: NSWindow.StyleMask = [.titled, .closable, .miniaturizable, .resizable]
@@ -24,6 +32,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         window.center()
         window.setFrameAutosaveName("AropytEditorMainWindow")
         window.minSize = NSSize(width: 600, height: 400)
+        window.toolbarStyle = .unified
         self.init(window: window)
     }
 
@@ -34,7 +43,8 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         self.contentViewController = vc
         self.mainVC = vc
         vc.onBusyStateChanged = { [weak self] busy in
-            self?.setEditingControlsEnabled(!busy)
+            self?.isEditorBusy = busy
+            self?.updateEditingControlsEnabled()
         }
         self.window?.delegate = self
         self.window?.toolbar = makeToolbar()
@@ -51,6 +61,141 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
 
         // 触发首次加载
         vc.reloadFromDocument()
+    }
+
+    func openDirectory(at rootURL: URL) throws {
+        guard let mainVC, let document = mainVC.document else {
+            throw CocoaError(.fileReadUnknown)
+        }
+        let sidebar = try WorkspaceSidebarViewController(rootURL: rootURL)
+        let container = WorkspaceContainerViewController(
+            sidebarViewController: sidebar,
+            editorViewController: mainVC
+        )
+        container.onSidebarVisibilityChanged = { [weak self] _ in
+            self?.updateSidebarToolbarItem()
+        }
+        sidebar.onOpenFile = { [weak self] url in
+            self?.openWorkspaceFile(at: url)
+        }
+        sidebar.onOpenInNewWindow = { [weak self] node in
+            self?.openWorkspaceItemInNewWindow(node)
+        }
+        sidebar.onItemMoved = { [weak self] oldURL, newURL in
+            guard let self, let document = self.mainVC?.document else { return }
+            document.updateWorkspaceFileURL(afterMoving: oldURL, to: newURL)
+            self.workspaceContainer?.sidebarViewController.selectFile(at: document.fileURL ?? newURL)
+        }
+        sidebar.onItemDeleted = { [weak self] deletedURL in
+            guard let self, let document = self.mainVC?.document else { return }
+            document.clearWorkspaceFileIfDeleted(at: deletedURL)
+            self.mainVC?.reloadFromDocument()
+            if document.fileURL == nil {
+                self.window?.title = rootURL.lastPathComponent
+            }
+        }
+
+        workspaceContainer = container
+        document.workspaceRootURL = sidebar.model.fileSystem.rootURL
+        contentViewController = container
+        _ = container.view
+        if let toolbar = window?.toolbar,
+           !toolbar.items.contains(where: { $0.itemIdentifier == Self.sidebarItemID }) {
+            toolbar.insertItem(withItemIdentifier: Self.sidebarItemID, at: 0)
+        }
+        updateSidebarToolbarItem()
+
+        if let fileURL = document.fileURL,
+           sidebar.model.fileSystem.contains(fileURL),
+           WorkspaceFileSystem.isMarkdownFile(fileURL) {
+            sidebar.selectFile(at: fileURL)
+        } else if document.fileURL == nil {
+            window?.title = rootURL.lastPathComponent
+        }
+    }
+
+    func openWorkspaceFile(at url: URL) {
+        guard !workspaceTransitionRunning,
+              let mainVC,
+              let document = mainVC.document else { return }
+        let url = url.standardizedFileURL
+        guard url != document.fileURL?.standardizedFileURL else {
+            workspaceContainer?.sidebarViewController.selectFile(at: url)
+            return
+        }
+
+        setWorkspaceTransitionRunning(true)
+        mainVC.prepareToClose { [weak self, weak document] succeeded in
+            guard let self, let document else { return }
+            guard succeeded else {
+                self.setWorkspaceTransitionRunning(false)
+                return
+            }
+            guard document.isDocumentEdited else {
+                self.finishOpeningWorkspaceFile(url, in: document)
+                return
+            }
+            self.pendingWorkspaceFileURL = url
+            document.canClose(
+                withDelegate: self,
+                shouldClose: #selector(self.document(_:shouldClose:contextInfo:)),
+                contextInfo: nil
+            )
+        }
+    }
+
+    @objc private func document(_ document: NSDocument,
+                                shouldClose: Bool,
+                                contextInfo: UnsafeMutableRawPointer?) {
+        let url = pendingWorkspaceFileURL
+        pendingWorkspaceFileURL = nil
+        guard shouldClose, let url, let markdownDocument = document as? MarkdownDocument else {
+            setWorkspaceTransitionRunning(false)
+            return
+        }
+        finishOpeningWorkspaceFile(url, in: markdownDocument)
+    }
+
+    private func finishOpeningWorkspaceFile(_ url: URL, in document: MarkdownDocument) {
+        do {
+            try document.loadWorkspaceFile(at: url)
+            AutoSaveManager.shared.markSaved(document)
+            mainVC?.reloadFromDocument()
+            workspaceContainer?.sidebarViewController.selectFile(at: url)
+        } catch {
+            presentWorkspaceError(error)
+        }
+        setWorkspaceTransitionRunning(false)
+    }
+
+    private func openWorkspaceItemInNewWindow(_ node: WorkspaceTreeNode) {
+        if node.isDirectory {
+            (NSDocumentController.shared as? AppDocumentController)?.openDirectory(at: node.url)
+            return
+        }
+        NSDocumentController.shared.openDocument(
+            withContentsOf: node.url,
+            display: true
+        ) { _, _, error in
+            guard let error else { return }
+            let alert = NSAlert(error: error)
+            alert.runModal()
+        }
+    }
+
+    private func presentWorkspaceError(_ error: Error) {
+        let alert = NSAlert(error: error)
+        alert.messageText = L10n.tr("workspace.operation_error.title", "Workspace Operation Failed")
+        if let window {
+            alert.beginSheetModal(for: window)
+        } else {
+            alert.runModal()
+        }
+    }
+
+    private func setWorkspaceTransitionRunning(_ running: Bool) {
+        workspaceTransitionRunning = running
+        updateEditingControlsEnabled()
     }
 
     deinit {
@@ -123,7 +268,9 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         guard let items = window?.toolbar?.items else { return }
         let manager = ShortcutManager.shared
         for item in items {
-            if item.itemIdentifier == Self.toggleModeItemID {
+            if item.itemIdentifier == Self.sidebarItemID {
+                updateSidebarToolbarItem(item)
+            } else if item.itemIdentifier == Self.toggleModeItemID {
                 let label = L10n.tr("toolbar.toggle_source_preview.label", "Source / Preview")
                 let accessibility = L10n.tr(
                     "toolbar.toggle_source_preview.accessibility",
@@ -162,11 +309,48 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         }
     }
 
+    private func updateEditingControlsEnabled() {
+        setEditingControlsEnabled(!isEditorBusy && !workspaceTransitionRunning)
+    }
+
     private func setEditingControlsEnabled(_ enabled: Bool) {
         for item in window?.toolbar?.items ?? [] where item.itemIdentifier != Self.settingsItemID {
             item.isEnabled = enabled
             (item.view as? NSControl)?.isEnabled = enabled
         }
+        workspaceContainer?.sidebarViewController.outlineView.isEnabled = enabled
+    }
+
+    private func updateSidebarToolbarItem(_ item: NSToolbarItem? = nil) {
+        guard let container = workspaceContainer else { return }
+        let item = item ?? window?.toolbar?.items.first {
+            $0.itemIdentifier == Self.sidebarItemID
+        }
+        guard let item else { return }
+        let visible = container.isSidebarVisible
+        let title = visible
+            ? L10n.tr("toolbar.sidebar.hide", "Hide Sidebar")
+            : L10n.tr("toolbar.sidebar.show", "Show Sidebar")
+        let symbol = Self.sidebarSymbolName(isVisible: visible)
+        let image = NSImage(systemSymbolName: symbol, accessibilityDescription: title)
+            ?? NSImage(systemSymbolName: visible ? "rectangle.leadinghalf.filled" : "rectangle", accessibilityDescription: title)
+        item.label = title
+        item.paletteLabel = title
+        item.image = image
+        item.setTooltipOnItemAndView(title)
+        if let button = item.view as? NSButton {
+            button.image = image
+            button.setAccessibilityLabel(title)
+        }
+    }
+
+    static func sidebarSymbolName(isVisible: Bool) -> String {
+        isVisible ? "sidebar.left" : "sidebar.right"
+    }
+
+    func toggleWorkspaceSidebar() {
+        workspaceContainer?.toggleSidebar()
+        updateSidebarToolbarItem()
     }
 
     /// 描述一个格式化按钮的元数据
@@ -269,6 +453,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
 
 extension EditorWindowController: NSToolbarDelegate {
 
+    static let sidebarItemID    = NSToolbarItem.Identifier("AropytEditor.Sidebar")
     static let toggleModeItemID = NSToolbarItem.Identifier("AropytEditor.ToggleMode")
     static let settingsItemID   = NSToolbarItem.Identifier("AropytEditor.Settings")
 
@@ -284,7 +469,9 @@ extension EditorWindowController: NSToolbarDelegate {
     }
 
     func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        var ids: [NSToolbarItem.Identifier] = [.flexibleSpace, .space, Self.toggleModeItemID, Self.settingsItemID]
+        var ids: [NSToolbarItem.Identifier] = [
+            .flexibleSpace, .space, Self.sidebarItemID, Self.toggleModeItemID, Self.settingsItemID,
+        ]
         for btn in Self.formatButtons {
             ids.append(btn.id)
         }
@@ -294,6 +481,23 @@ extension EditorWindowController: NSToolbarDelegate {
     func toolbar(_ toolbar: NSToolbar,
                  itemForItemIdentifier itemIdentifier: NSToolbarItem.Identifier,
                  willBeInsertedIntoToolbar flag: Bool) -> NSToolbarItem? {
+        if itemIdentifier == Self.sidebarItemID {
+            let item = NSToolbarItem(itemIdentifier: itemIdentifier)
+            let visible = workspaceContainer?.isSidebarVisible ?? true
+            let title = visible
+                ? L10n.tr("toolbar.sidebar.hide", "Hide Sidebar")
+                : L10n.tr("toolbar.sidebar.show", "Show Sidebar")
+            let symbol = Self.sidebarSymbolName(isVisible: visible)
+            item.label = title
+            item.paletteLabel = title
+            item.image = NSImage(systemSymbolName: symbol, accessibilityDescription: title)
+            item.view = makeToolbarButton(symbol: symbol,
+                                          accessibilityDescription: title,
+                                          tooltip: title,
+                                          tag: 0,
+                                          action: #selector(toggleSidebarFromToolbar(_:)))
+            return item
+        }
         if itemIdentifier == Self.toggleModeItemID {
             let item = NSToolbarItem(itemIdentifier: itemIdentifier)
             let label = L10n.tr("toolbar.toggle_source_preview.label", "Source / Preview")
@@ -377,6 +581,10 @@ extension EditorWindowController: NSToolbarDelegate {
 
     @objc private func toggleModeFromToolbar(_ sender: Any?) {
         mainVC?.toggleMode(sender)
+    }
+
+    @objc private func toggleSidebarFromToolbar(_ sender: Any?) {
+        toggleWorkspaceSidebar()
     }
 
     @objc private func formatItemAction(_ sender: Any?) {

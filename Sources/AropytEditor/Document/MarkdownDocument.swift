@@ -7,6 +7,7 @@ import MarkdownCore
 final class MarkdownDocument: NSDocument {
 
     var applicationLaunchPreferences = ApplicationLaunchPreferences.shared
+    var workspaceRootURL: URL?
 
     enum ReloadFromDiskError: LocalizedError {
         case noFileURL
@@ -76,20 +77,7 @@ final class MarkdownDocument: NSDocument {
     // MARK: - 读写
 
     override func read(from data: Data, ofType typeName: String) throws {
-        if let s = String(data: data, encoding: .utf8) {
-            self.text = s
-        } else if let s = String(data: data, encoding: .utf16) {
-            self.text = s
-        } else {
-            throw NSError(domain: NSCocoaErrorDomain,
-                          code: NSFileReadCorruptFileError,
-                          userInfo: [
-                              NSLocalizedDescriptionKey: L10n.tr(
-                                  "error.file.decode_failed",
-                                  "Unable to decode file contents (not UTF-8/UTF-16)."
-                              )
-                          ])
-        }
+        self.text = try Self.decode(data)
     }
 
     override func data(ofType typeName: String) throws -> Data {
@@ -108,6 +96,61 @@ final class MarkdownDocument: NSDocument {
 
         let type = fileType ?? Self.readableTypes[0]
         try revert(toContentsOf: fileURL, ofType: type)
+    }
+
+    /// Reuses this NSDocument as the active editor inside a directory window.
+    /// The bytes are decoded before any document state changes, so a failed read
+    /// leaves the current editor untouched.
+    func loadWorkspaceFile(at url: URL) throws {
+        let url = url.standardizedFileURL
+        let data = try Data(contentsOf: url)
+        let decodedText = try Self.decode(data)
+
+        text = decodedText
+        fileType = Self.readableTypes[0]
+        fileURL = url
+        undoManager?.removeAllActions()
+        updateChangeCount(.changeCleared)
+        windowControllers.forEach { $0.synchronizeWindowTitleWithDocumentName() }
+    }
+
+    func updateWorkspaceFileURL(afterMoving oldURL: URL, to newURL: URL) {
+        guard let fileURL else { return }
+        let oldComponents = oldURL.standardizedFileURL.pathComponents
+        let currentComponents = fileURL.standardizedFileURL.pathComponents
+        guard currentComponents.count >= oldComponents.count,
+              Array(currentComponents.prefix(oldComponents.count)) == oldComponents else { return }
+        let suffix = currentComponents.dropFirst(oldComponents.count)
+        self.fileURL = suffix.reduce(newURL.standardizedFileURL) {
+            $0.appendingPathComponent($1)
+        }
+        windowControllers.forEach { $0.synchronizeWindowTitleWithDocumentName() }
+    }
+
+    func clearWorkspaceFileIfDeleted(at deletedURL: URL) {
+        guard let fileURL else { return }
+        let deletedComponents = deletedURL.standardizedFileURL.pathComponents
+        let currentComponents = fileURL.standardizedFileURL.pathComponents
+        guard currentComponents.count >= deletedComponents.count,
+              Array(currentComponents.prefix(deletedComponents.count)) == deletedComponents else { return }
+        text = ""
+        self.fileURL = nil
+        undoManager?.removeAllActions()
+        updateChangeCount(.changeCleared)
+        windowControllers.forEach { $0.synchronizeWindowTitleWithDocumentName() }
+    }
+
+    private static func decode(_ data: Data) throws -> String {
+        if let string = String(data: data, encoding: .utf8) { return string }
+        if let string = String(data: data, encoding: .utf16) { return string }
+        throw NSError(domain: NSCocoaErrorDomain,
+                      code: NSFileReadCorruptFileError,
+                      userInfo: [
+                          NSLocalizedDescriptionKey: L10n.tr(
+                              "error.file.decode_failed",
+                              "Unable to decode file contents (not UTF-8/UTF-16)."
+                          )
+                      ])
     }
 
     // MARK: - 文本变更入口（视图控制器调用，走 undo manager）

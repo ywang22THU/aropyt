@@ -132,6 +132,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                                   keyEquivalent: "")
         fileMenu.addItem(openItem)
         configurableMenuItems[.openDocument] = openItem
+        let openDirectoryItem = NSMenuItem(
+            title: L10n.tr("menu.file.open_directory", "Open Directory…"),
+            action: #selector(AppDocumentController.openDirectory(_:)),
+            keyEquivalent: ""
+        )
+        openDirectoryItem.target = NSDocumentController.shared
+        fileMenu.addItem(openDirectoryItem)
         fileMenu.addItem(.separator())
         let closeItem = NSMenuItem(title: L10n.tr("menu.file.close", "Close"),
                                    action: #selector(NSWindow.performClose(_:)),
