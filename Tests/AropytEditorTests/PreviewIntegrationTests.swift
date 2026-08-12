@@ -117,6 +117,49 @@ struct PreviewIntegrationTests {
         #expect(!controller.isDirty)
     }
 
+    @Test func relativeImageLoadsBesideMarkdownDocument() async throws {
+        _ = NSApplication.shared
+        let directoryURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let assetsURL = directoryURL.appendingPathComponent("assets", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: assetsURL,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: directoryURL) }
+
+        let imageURL = assetsURL.appendingPathComponent("pixel.png")
+        let png = try #require(Data(base64Encoded:
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+        ))
+        try png.write(to: imageURL)
+        let documentURL = directoryURL.appendingPathComponent("note.md")
+
+        let controller = PreviewViewController()
+        var convertedMarkdown: String?
+        controller.onMarkdownEdited = { convertedMarkdown = $0 }
+        _ = controller.view
+        controller.load(
+            markdown: "![](assets/pixel.png)",
+            documentURL: documentURL
+        )
+        try await waitUntilReady(controller, timeout: .seconds(10))
+        let source = try await waitForLoadedImage(in: controller.view as! WKWebView)
+
+        #expect(source.hasPrefix("aropyt-document://local/"), "\(source)")
+        #expect(source.contains("/assets/pixel.png"), "\(source)")
+
+        try await runJavaScript(
+            "document.getElementById('content').append(document.createTextNode(' edited'));"
+                + "document.getElementById('content').dispatchEvent(new Event('input', {bubbles:true}));",
+            in: controller.view as! WKWebView
+        )
+        try await waitForCondition(timeout: .seconds(2)) { convertedMarkdown != nil }
+        let converted = try #require(convertedMarkdown)
+        #expect(converted.contains("![](assets/pixel.png)"), "\(converted)")
+        #expect(!converted.contains("aropyt-document://"), "\(converted)")
+    }
+
     @Test func previewRoundTripPreservesDollarMathFromMetadata() async throws {
         _ = NSApplication.shared
         let preferences = SyntaxPreferences.shared
@@ -944,6 +987,25 @@ struct PreviewIntegrationTests {
         throw IntegrationError.timeout(
             "source viewport near \(expectedOffset); last offset \(lastOffset)"
         )
+    }
+
+    private func waitForLoadedImage(in webView: WKWebView) async throws -> String {
+        let clock = ContinuousClock()
+        let started = clock.now
+        var lastState = ""
+        while started.duration(to: clock.now) < .seconds(5) {
+            lastState = try await javaScriptString(
+                "var image = document.querySelector('img');"
+                    + " image ? [image.complete, image.naturalWidth, image.src].join('|') : '';",
+                in: webView
+            )
+            let parts = lastState.split(separator: "|", maxSplits: 2).map(String.init)
+            if parts.count == 3, parts[0] == "true", parts[1] == "1" {
+                return parts[2]
+            }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        throw IntegrationError.timeout("local image load; last state \(lastState)")
     }
 
     private func makeLongDocumentEditor(markdown: String,

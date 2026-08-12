@@ -65,6 +65,23 @@ struct MarkdownRendererTests {
         #expect(html.contains("function applyCodeBlockPreferences(root)"))
     }
 
+    @Test func localImageBaseURLIsEmbedded() {
+        let configuration = PreviewRenderConfiguration(
+            isLongDocument: false,
+            imageBaseURL: "aropyt-document://local/tmp/notes/"
+        )
+        let html = MarkdownRenderer.htmlDocument(
+            for: "![](assets/image.png)",
+            configuration: configuration
+        )
+
+        #expect(html.contains(#"aropyt-document:\/\/local\/tmp\/notes\/"#))
+        #expect(html.contains("function resolveLocalImageSources(root)"))
+        #expect(html.contains("new URL(source, imageBaseURL).href"))
+        #expect(html.contains("data-aropyt-image-source"))
+        #expect(html.contains("turndownService.addRule('aropytLocalImage'"))
+    }
+
     @Test func localizedConfigurationIsSafelyEmbedded() {
         let configuration = PreviewRenderConfiguration(
             isLongDocument: true,

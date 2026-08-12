@@ -113,7 +113,7 @@ final class MainViewController: NSViewController, NSMenuItemValidation {
         }
         // 新窗口默认预览模式，首次加载时把文档内容渲染进 WebView。
         if mode == .preview {
-            previewVC?.load(markdown: doc.text)
+            previewVC?.load(markdown: doc.text, documentURL: doc.fileURL)
         }
     }
 
@@ -137,7 +137,7 @@ final class MainViewController: NSViewController, NSMenuItemValidation {
             sourceVC.setText(doc.text)
         }
         if mode == .preview {
-            previewVC?.load(markdown: doc.text)
+            previewVC?.load(markdown: doc.text, documentURL: doc.fileURL)
         }
     }
 
@@ -222,7 +222,7 @@ final class MainViewController: NSViewController, NSMenuItemValidation {
         case .preview:
             embedPreview()
             if let doc = self.document {
-                previewVC?.load(markdown: doc.text)
+                previewVC?.load(markdown: doc.text, documentURL: doc.fileURL)
             }
             if let sourceOffset {
                 previewVC?.scrollToSourceOffset(sourceOffset)

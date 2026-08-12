@@ -47,6 +47,8 @@ final class PreviewViewController: NSViewController, WKNavigationDelegate, WKScr
 
     private var webView: WKWebView?
     private var pendingMarkdown: String?
+    private var pendingDocumentURL: URL?
+    private var documentSchemeHandler: PreviewDocumentSchemeHandler?
     private(set) var lastSentMarkdown: String?
     private var isReady = false
     private(set) var renderState: RenderState = .idle
@@ -54,6 +56,7 @@ final class PreviewViewController: NSViewController, WKNavigationDelegate, WKScr
     private(set) var isFlushing = false
     private var renderGeneration = 0
     private var renderedSyntaxOptions: SyntaxRenderOptions?
+    private var renderedDocumentURL: URL?
     private var syntaxPreferenceReloadPending = false
     private var hasCommittedDocument = false
     private(set) var navigationDidFinish = false
@@ -81,6 +84,12 @@ final class PreviewViewController: NSViewController, WKNavigationDelegate, WKScr
             PreviewResourceSchemeHandler(resourceDirectory: Self.resourceBaseURL()),
             forURLScheme: PreviewResourceSchemeHandler.scheme
         )
+        let documentSchemeHandler = PreviewDocumentSchemeHandler()
+        config.setURLSchemeHandler(
+            documentSchemeHandler,
+            forURLScheme: PreviewDocumentSchemeHandler.scheme
+        )
+        self.documentSchemeHandler = documentSchemeHandler
 
         let wv = WKWebView(frame: NSRect(x: 0, y: 0, width: 1100, height: 720),
                            configuration: config)
@@ -104,8 +113,10 @@ final class PreviewViewController: NSViewController, WKNavigationDelegate, WKScr
         )
 
         if let pending = pendingMarkdown {
+            let documentURL = pendingDocumentURL
             pendingMarkdown = nil
-            renderInternal(markdown: pending)
+            pendingDocumentURL = nil
+            renderInternal(markdown: pending, documentURL: documentURL)
         }
     }
 
@@ -122,23 +133,26 @@ final class PreviewViewController: NSViewController, WKNavigationDelegate, WKScr
     /// 公开入口：渲染指定的 markdown。
     /// 如果 markdown 与 lastSentMarkdown 完全一致（说明这是从预览编辑回流回来的），
     /// 则跳过 reload 避免打乱光标。
-    func load(markdown: String) {
+    func load(markdown: String, documentURL: URL? = nil) {
         // 触发 loadView（如果尚未加载）
         _ = self.view
         guard self.webView != nil else {
             pendingMarkdown = markdown
+            pendingDocumentURL = documentURL
             return
         }
+        let documentURL = documentURL?.standardizedFileURL
         let syntaxOptions = SyntaxRenderOptions(preferences: SyntaxPreferences.shared)
         if let last = lastSentMarkdown,
            last == markdown,
-           renderedSyntaxOptions == syntaxOptions {
+           renderedSyntaxOptions == syntaxOptions,
+           renderedDocumentURL == documentURL {
             return
         }
-        renderInternal(markdown: markdown)
+        renderInternal(markdown: markdown, documentURL: documentURL)
     }
 
-    private func renderInternal(markdown: String) {
+    private func renderInternal(markdown: String, documentURL: URL?) {
         guard let wv = self.webView else { return }
         renderGeneration &+= 1
         let generation = renderGeneration
@@ -148,6 +162,8 @@ final class PreviewViewController: NSViewController, WKNavigationDelegate, WKScr
         lastSentMarkdown = markdown
         let syntaxOptions = SyntaxRenderOptions(preferences: SyntaxPreferences.shared)
         renderedSyntaxOptions = syntaxOptions
+        renderedDocumentURL = documentURL
+        documentSchemeHandler?.documentDirectoryURL = documentURL?.deletingLastPathComponent()
         let isLongDocument = LongDocumentPolicy.isLongDocument(markdown)
         let configuration = PreviewRenderConfiguration(
             isLongDocument: isLongDocument,
@@ -164,6 +180,7 @@ final class PreviewViewController: NSViewController, WKNavigationDelegate, WKScr
             supportsMathCodeBlocks: syntaxOptions.supportsMathCodeBlocks,
             showsCodeBlockLineNumbers: syntaxOptions.showsCodeBlockLineNumbers,
             wrapsCodeBlockLines: syntaxOptions.wrapsCodeBlockLines,
+            imageBaseURL: PreviewDocumentSchemeHandler.baseURL(for: documentURL)?.absoluteString,
             mermaidZoomOutText: L10n.tr("preview.mermaid.zoom_out", "Zoom out"),
             mermaidZoomInText: L10n.tr("preview.mermaid.zoom_in", "Zoom in"),
             mermaidResetText: L10n.tr("preview.mermaid.reset", "Reset view"),
@@ -540,7 +557,7 @@ final class PreviewViewController: NSViewController, WKNavigationDelegate, WKScr
             return
         }
         syntaxPreferenceReloadPending = false
-        renderInternal(markdown: markdown)
+        renderInternal(markdown: markdown, documentURL: renderedDocumentURL)
     }
 
     private func applyPendingSyntaxPreferenceIfPossible() {
@@ -550,7 +567,7 @@ final class PreviewViewController: NSViewController, WKNavigationDelegate, WKScr
               let markdown = lastSentMarkdown
         else { return }
         syntaxPreferenceReloadPending = false
-        renderInternal(markdown: markdown)
+        renderInternal(markdown: markdown, documentURL: renderedDocumentURL)
     }
 
     private static func javaScriptStringLiteral(_ string: String) -> String {
@@ -719,6 +736,74 @@ final class PreviewViewController: NSViewController, WKNavigationDelegate, WKScr
             return
         }
         decisionHandler(.allow)
+    }
+}
+
+private final class PreviewDocumentSchemeHandler: NSObject, WKURLSchemeHandler {
+    static let scheme = "aropyt-document"
+
+    var documentDirectoryURL: URL?
+
+    static func baseURL(for documentURL: URL?) -> URL? {
+        guard let documentURL else { return nil }
+        var components = URLComponents()
+        components.scheme = scheme
+        components.host = "local"
+        var directoryPath = documentURL.deletingLastPathComponent().standardizedFileURL.path
+        if !directoryPath.hasSuffix("/") {
+            directoryPath += "/"
+        }
+        components.path = directoryPath
+        return components.url
+    }
+
+    func webView(_ webView: WKWebView, start urlSchemeTask: WKURLSchemeTask) {
+        guard
+            let requestURL = urlSchemeTask.request.url,
+            requestURL.scheme == Self.scheme,
+            requestURL.host == "local",
+            let documentDirectoryURL
+        else {
+            fail(urlSchemeTask, code: NSURLErrorBadURL)
+            return
+        }
+
+        let rootURL = documentDirectoryURL.resolvingSymlinksInPath()
+        let fileURL = URL(fileURLWithPath: requestURL.path).resolvingSymlinksInPath()
+        let rootPath = rootURL.path.hasSuffix("/") ? rootURL.path : rootURL.path + "/"
+        guard fileURL.path.hasPrefix(rootPath),
+              let mimeType = Self.imageMIMEType(for: fileURL.pathExtension) else {
+            fail(urlSchemeTask, code: NSURLErrorNoPermissionsToReadFile)
+            return
+        }
+
+        do {
+            let data = try Data(contentsOf: fileURL, options: [.mappedIfSafe])
+            let response = URLResponse(
+                url: requestURL,
+                mimeType: mimeType,
+                expectedContentLength: data.count,
+                textEncodingName: nil
+            )
+            urlSchemeTask.didReceive(response)
+            urlSchemeTask.didReceive(data)
+            urlSchemeTask.didFinish()
+        } catch {
+            urlSchemeTask.didFailWithError(error)
+        }
+    }
+
+    func webView(_ webView: WKWebView, stop urlSchemeTask: WKURLSchemeTask) {}
+
+    private func fail(_ task: WKURLSchemeTask, code: Int) {
+        task.didFailWithError(NSError(domain: NSURLErrorDomain, code: code))
+    }
+
+    private static func imageMIMEType(for pathExtension: String) -> String? {
+        guard let type = UTType(filenameExtension: pathExtension), type.conforms(to: .image) else {
+            return nil
+        }
+        return type.preferredMIMEType ?? "application/octet-stream"
     }
 }
 

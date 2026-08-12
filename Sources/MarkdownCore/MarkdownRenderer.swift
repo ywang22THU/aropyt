@@ -12,6 +12,7 @@ public struct PreviewRenderConfiguration: Sendable {
     public var supportsMathCodeBlocks: Bool
     public var showsCodeBlockLineNumbers: Bool
     public var wrapsCodeBlockLines: Bool
+    public var imageBaseURL: String?
     public var mermaidZoomOutText: String
     public var mermaidZoomInText: String
     public var mermaidResetText: String
@@ -29,6 +30,7 @@ public struct PreviewRenderConfiguration: Sendable {
                 supportsMathCodeBlocks: Bool = false,
                 showsCodeBlockLineNumbers: Bool = true,
                 wrapsCodeBlockLines: Bool = true,
+                imageBaseURL: String? = nil,
                 mermaidZoomOutText: String = "Zoom out",
                 mermaidZoomInText: String = "Zoom in",
                 mermaidResetText: String = "Reset view",
@@ -45,6 +47,7 @@ public struct PreviewRenderConfiguration: Sendable {
         self.supportsMathCodeBlocks = supportsMathCodeBlocks
         self.showsCodeBlockLineNumbers = showsCodeBlockLineNumbers
         self.wrapsCodeBlockLines = wrapsCodeBlockLines
+        self.imageBaseURL = imageBaseURL
         self.mermaidZoomOutText = mermaidZoomOutText
         self.mermaidZoomInText = mermaidZoomInText
         self.mermaidResetText = mermaidResetText
@@ -83,6 +86,7 @@ public enum MarkdownRenderer {
         let completeText = jsStringLiteral(configuration.completeText)
         let convertingText = jsStringLiteral(configuration.convertingText)
         let autoSaveWarningText = jsStringLiteral(configuration.autoSaveWarningText)
+        let imageBaseURL = configuration.imageBaseURL.map(jsStringLiteral) ?? "null"
         let mermaidZoomOutText = jsStringLiteral(configuration.mermaidZoomOutText)
         let mermaidZoomInText = jsStringLiteral(configuration.mermaidZoomInText)
         let mermaidResetText = jsStringLiteral(configuration.mermaidResetText)
@@ -356,6 +360,7 @@ public enum MarkdownRenderer {
                     var supportsMathCodeBlocks = \(configuration.supportsMathCodeBlocks ? "true" : "false");
                     var showsCodeBlockLineNumbers = \(configuration.showsCodeBlockLineNumbers ? "true" : "false");
                     var wrapsCodeBlockLines = \(configuration.wrapsCodeBlockLines ? "true" : "false");
+                    var imageBaseURL = \(imageBaseURL);
                     var renderCancelled = false;
                     var renderComplete = false;
                     var protectedMathSegments = [];
@@ -1149,6 +1154,7 @@ public enum MarkdownRenderer {
                     }
 
                     function processRenderedRoot(root) {
+                        resolveLocalImageSources(root);
                         prepareMathCodeBlocks(root);
                         renderMath(root);
                         prepareMermaidDiagrams(root);
@@ -1158,6 +1164,20 @@ public enum MarkdownRenderer {
                             });
                         }
                         applyCodeBlockPreferences(root);
+                    }
+
+                    function resolveLocalImageSources(root) {
+                        if (!imageBaseURL) return;
+                        root.querySelectorAll('img[src]').forEach(function(image) {
+                            var source = image.getAttribute('src') || '';
+                            if (!source || source.charAt(0) === '#') return;
+                            if (/^[a-z][a-z0-9+\\-.]*:/i.test(source)) return;
+                            if (source.indexOf('//') === 0) return;
+                            try {
+                                image.setAttribute('data-aropyt-image-source', source);
+                                image.setAttribute('src', new URL(source, imageBaseURL).href);
+                            } catch (error) {}
+                        });
                     }
 
                     function appendTokenBatch(tokens) {
@@ -1387,6 +1407,22 @@ public enum MarkdownRenderer {
                         if (window.turndownPluginGfm) {
                             turndownService.use(window.turndownPluginGfm.gfm);
                         }
+                        turndownService.addRule('aropytLocalImage', {
+                            filter: function(node) {
+                                return node.nodeName === 'IMG'
+                                    && node.hasAttribute('data-aropyt-image-source');
+                            },
+                            replacement: function(_, node) {
+                                function clean(attribute) {
+                                    return attribute ? attribute.replace(/(\\n+\\s*)+/g, '\\n') : '';
+                                }
+                                var alt = clean(node.getAttribute('alt'));
+                                var source = node.getAttribute('data-aropyt-image-source') || '';
+                                var title = clean(node.getAttribute('title'));
+                                var titlePart = title ? ' "' + title + '"' : '';
+                                return source ? '![' + alt + '](' + source + titlePart + ')' : '';
+                            }
+                        });
                         function texFromKatexNode(node) {
                             var annotation = node.querySelector
                                 ? node.querySelector('annotation[encoding="application/x-tex"]')
