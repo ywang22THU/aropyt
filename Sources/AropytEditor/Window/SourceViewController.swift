@@ -26,6 +26,7 @@ final class SourceViewController: NSViewController, NSTextViewDelegate {
 
     /// 文本变化回调（用户编辑触发）
     var onTextChanged: ((String) -> Void)?
+    var onPasteImage: (() -> Bool)?
 
     var currentText: String {
         return textView?.string ?? ""
@@ -61,9 +62,10 @@ final class SourceViewController: NSViewController, NSTextViewDelegate {
         scroll.translatesAutoresizingMaskIntoConstraints = true
 
         let contentSize = scroll.contentSize
-        let tv = NSTextView(frame: NSRect(x: 0, y: 0,
-                                          width: contentSize.width,
-                                          height: contentSize.height))
+        let tv = ImagePasteTextView(frame: NSRect(x: 0, y: 0,
+                                                  width: contentSize.width,
+                                                  height: contentSize.height))
+        tv.onPasteImage = { [weak self] in self?.onPasteImage?() ?? false }
         // NSTextView 必备配置 —— 不设这几项可能整片空白
         tv.minSize = NSSize(width: 0, height: 0)
         tv.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude,
@@ -506,5 +508,14 @@ final class SourceViewController: NSViewController, NSTextViewDelegate {
             return true
         }
         return false
+    }
+}
+
+private final class ImagePasteTextView: NSTextView {
+    var onPasteImage: (() -> Bool)?
+
+    override func paste(_ sender: Any?) {
+        guard onPasteImage?() != true else { return }
+        super.paste(sender)
     }
 }

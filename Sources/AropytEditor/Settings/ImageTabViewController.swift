@@ -178,6 +178,11 @@ final class ImageTabViewController: NSViewController, NSTextFieldDelegate {
         currentDirectoryButton.state = destination == .currentDirectory ? .on : .off
         resourceDirectoryButton.state = destination == .resourceDirectory ? .on : .off
         resourceDirectoryField.stringValue = preferences.resourceDirectoryName
+        resourceDirectoryButton.title = L10n.tr(
+            "settings.image.destination.resource_directory",
+            "Copy to resource directory (./%@/)",
+            preferences.resourceDirectoryName
+        )
         resourceDirectoryField.isEnabled = destination == .resourceDirectory
         resourceDirectoryLabel.textColor = destination == .resourceDirectory
             ? .labelColor
@@ -198,10 +203,6 @@ final class ImageTabViewController: NSViewController, NSTextFieldDelegate {
         currentDirectoryButton.title = L10n.tr(
             "settings.image.destination.current_directory",
             "Copy to current directory (./)"
-        )
-        resourceDirectoryButton.title = L10n.tr(
-            "settings.image.destination.resource_directory",
-            "Copy to resource directory (./assets/)"
         )
         resourceDirectoryLabel.stringValue = L10n.tr(
             "settings.image.resource_directory_name",

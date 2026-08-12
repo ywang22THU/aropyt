@@ -13,6 +13,7 @@ final class MainViewController: NSViewController, NSMenuItemValidation {
     private(set) var mode: Mode = .preview
 
     private let sourceVC = SourceViewController()
+    private let imagePasteService: ImagePasteService
     /// 预览 VC 懒加载：webView 必须等到 view 第一次访问时 loadView() 才会创建。
     private var previewVC: PreviewViewController?
     private let contentContainer = NSView()
@@ -36,6 +37,15 @@ final class MainViewController: NSViewController, NSMenuItemValidation {
 
     var hasUnflushedPreviewEdits: Bool {
         mode == .preview && previewVC?.isDirty == true
+    }
+
+    init(imagePasteService: ImagePasteService = ImagePasteService()) {
+        self.imagePasteService = imagePasteService
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
     }
 
     private var container: NSView { contentContainer }
@@ -66,6 +76,9 @@ final class MainViewController: NSViewController, NSMenuItemValidation {
             // 用户在源码模式下打字 → 同步到 document
             doc.synchronizeTextFromEditingView(newText)
             AutoSaveManager.shared.contentDidChange(in: doc)
+        }
+        sourceVC.onPasteImage = { [weak self] in
+            self?.pasteImage(from: .general) ?? false
         }
         findBar.onQueryChanged = { [weak self] _ in self?.performFind(.initial) }
         findBar.onNext = { [weak self] in self?.performFind(.next) }
@@ -266,6 +279,9 @@ final class MainViewController: NSViewController, NSMenuItemValidation {
                       !self.findBar.isHidden, self.findBar.hasQuery else { return }
                 self.performFind(.initial)
             }
+            pvc.onPasteImageRequested = { [weak self] in
+                _ = self?.pasteImage(from: .general)
+            }
             previewVC = pvc
         }
         guard let pvc = previewVC else { return }
@@ -296,6 +312,63 @@ final class MainViewController: NSViewController, NSMenuItemValidation {
 
     @IBAction func applyItalic(_ sender: Any?) {
         applyFormat("italic")
+    }
+
+    // MARK: - Image paste
+
+    func isEditorFirstResponder(_ responder: NSResponder?) -> Bool {
+        guard let responderView = responder as? NSView else { return false }
+        let editorView: NSView?
+        switch mode {
+        case .source:
+            editorView = sourceVC.view
+        case .preview:
+            editorView = previewVC?.view
+        }
+        guard let editorView else { return false }
+        return responderView === editorView || responderView.isDescendant(of: editorView)
+    }
+
+    @discardableResult
+    func pasteImage(from pasteboard: NSPasteboard) -> Bool {
+        guard let source = ImagePasteboardReader.imageSource(from: pasteboard) else {
+            return false
+        }
+        if mode == .preview, previewVC?.acceptsImagePaste != true {
+            NSSound.beep()
+            return true
+        }
+
+        do {
+            let insertion = try imagePasteService.makeInsertion(
+                for: source,
+                documentURL: document?.fileURL
+            )
+            switch mode {
+            case .source:
+                sourceVC.insertEditorText(insertion.markdown)
+            case .preview:
+                previewVC?.insertImage(
+                    markdownSource: insertion.markdownURL,
+                    localFileURL: insertion.imageURL
+                )
+            }
+        } catch {
+            presentImagePasteError(error)
+        }
+        return true
+    }
+
+    private func presentImagePasteError(_ error: Error) {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = L10n.tr("image.paste.error.title", "Could Not Paste Image")
+        alert.informativeText = error.localizedDescription
+        if let window = view.window {
+            alert.beginSheetModal(for: window)
+        } else {
+            alert.runModal()
+        }
     }
 
     // MARK: - Find

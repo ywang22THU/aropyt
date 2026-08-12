@@ -8,6 +8,7 @@ enum ImagePasteSource {
 
 struct ImagePasteInsertion: Equatable {
     let markdown: String
+    let markdownURL: String
     let imageURL: URL
     let copiedFileURL: URL?
 }
@@ -200,6 +201,7 @@ final class ImagePasteService {
             : markdownPath
         return ImagePasteInsertion(
             markdown: "![](\(path))",
+            markdownURL: path,
             imageURL: imageURL,
             copiedFileURL: copiedFileURL
         )

@@ -183,8 +183,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                          action: #selector(NSText.cut(_:)), keyEquivalent: "x")
         editMenu.addItem(withTitle: L10n.tr("menu.edit.copy", "Copy"),
                          action: #selector(NSText.copy(_:)), keyEquivalent: "c")
-        editMenu.addItem(withTitle: L10n.tr("menu.edit.paste", "Paste"),
-                         action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        let pasteItem = NSMenuItem(
+            title: L10n.tr("menu.edit.paste", "Paste"),
+            action: #selector(paste(_:)),
+            keyEquivalent: "v"
+        )
+        pasteItem.target = self
+        editMenu.addItem(pasteItem)
         editMenu.addItem(withTitle: L10n.tr("menu.edit.select_all", "Select All"),
                          action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
         editMenu.addItem(.separator())
@@ -258,6 +263,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func openSettings(_ sender: Any?) {
         SettingsWindowController.shared.showWindow()
+    }
+
+    @objc private func paste(_ sender: Any?) {
+        if let editorWindowController = NSApp.keyWindow?.windowController as? EditorWindowController,
+           let editor = editorWindowController.editorViewController,
+           editor.isEditorFirstResponder(NSApp.keyWindow?.firstResponder),
+           editor.pasteImage(from: .general) {
+            return
+        }
+        _ = NSApp.keyWindow?.firstResponder?.tryToPerform(
+            #selector(NSText.paste(_:)),
+            with: sender
+        )
     }
 
     @objc private func shortcutsDidChange(_ notification: Notification) {

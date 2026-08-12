@@ -53,6 +53,7 @@ struct ImageSettingsUITests {
         name.stringValue = "illustrations"
         name.sendAction(name.action, to: name.target)
         #expect(preferences.resourceDirectoryName == "illustrations")
+        #expect(resource.title.contains("./illustrations/"))
 
         name.stringValue = "../outside"
         name.sendAction(name.action, to: name.target)

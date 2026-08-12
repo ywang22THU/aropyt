@@ -70,13 +70,18 @@ final class PreviewViewController: NSViewController, WKNavigationDelegate, WKScr
     var onDirtyStateChanged: ((Bool) -> Void)?
     var onMermaidExportRequested: ((String, String) -> Void)?
     var onRenderReady: (() -> Void)?
+    var onPasteImageRequested: (() -> Void)?
+
+    var acceptsImagePaste: Bool {
+        isReady && !isFlushing
+    }
 
     override func loadView() {
         let config = WKWebViewConfiguration()
         config.preferences.javaScriptCanOpenWindowsAutomatically = false
         let userContent = WKUserContentController()
         for name in ["markdownChanged", "openLink", "previewReady", "previewDirty",
-                     "previewFlushResult", "previewState", "exportMermaid"] {
+                     "previewFlushResult", "previewState", "exportMermaid", "pasteImage"] {
             userContent.add(WeakScriptMessageHandler(delegate: self), name: name)
         }
         config.userContentController = userContent
@@ -91,8 +96,10 @@ final class PreviewViewController: NSViewController, WKNavigationDelegate, WKScr
         )
         self.documentSchemeHandler = documentSchemeHandler
 
-        let wv = WKWebView(frame: NSRect(x: 0, y: 0, width: 1100, height: 720),
-                           configuration: config)
+        let wv = WKWebView(
+            frame: NSRect(x: 0, y: 0, width: 1100, height: 720),
+            configuration: config
+        )
         wv.autoresizingMask = [.width, .height]
         wv.navigationDelegate = self
         wv.setValue(false, forKey: "drawsBackground") // 让系统背景透出
@@ -124,7 +131,7 @@ final class PreviewViewController: NSViewController, WKNavigationDelegate, WKScr
         NotificationCenter.default.removeObserver(self)
         if let webView {
             for name in ["markdownChanged", "openLink", "previewReady", "previewDirty",
-                         "previewFlushResult", "previewState", "exportMermaid"] {
+                         "previewFlushResult", "previewState", "exportMermaid", "pasteImage"] {
                 webView.configuration.userContentController.removeScriptMessageHandler(forName: name)
             }
         }
@@ -163,7 +170,6 @@ final class PreviewViewController: NSViewController, WKNavigationDelegate, WKScr
         let syntaxOptions = SyntaxRenderOptions(preferences: SyntaxPreferences.shared)
         renderedSyntaxOptions = syntaxOptions
         renderedDocumentURL = documentURL
-        documentSchemeHandler?.documentDirectoryURL = documentURL?.deletingLastPathComponent()
         let isLongDocument = LongDocumentPolicy.isLongDocument(markdown)
         let configuration = PreviewRenderConfiguration(
             isLongDocument: isLongDocument,
@@ -180,7 +186,10 @@ final class PreviewViewController: NSViewController, WKNavigationDelegate, WKScr
             supportsMathCodeBlocks: syntaxOptions.supportsMathCodeBlocks,
             showsCodeBlockLineNumbers: syntaxOptions.showsCodeBlockLineNumbers,
             wrapsCodeBlockLines: syntaxOptions.wrapsCodeBlockLines,
-            imageBaseURL: PreviewDocumentSchemeHandler.baseURL(for: documentURL)?.absoluteString,
+            imageBaseURL: (
+                PreviewDocumentSchemeHandler.baseURL(for: documentURL)
+                    ?? PreviewDocumentSchemeHandler.rootBaseURL
+            ).absoluteString,
             mermaidZoomOutText: L10n.tr("preview.mermaid.zoom_out", "Zoom out"),
             mermaidZoomInText: L10n.tr("preview.mermaid.zoom_in", "Zoom in"),
             mermaidResetText: L10n.tr("preview.mermaid.reset", "Reset view"),
@@ -257,6 +266,17 @@ final class PreviewViewController: NSViewController, WKNavigationDelegate, WKScr
         let escaped = command.replacingOccurrences(of: "'", with: "\\'")
         wv.evaluateJavaScript("window.aropytApplyFormat && window.aropytApplyFormat('\(escaped)')",
                               completionHandler: nil)
+    }
+
+    func insertImage(markdownSource: String, localFileURL: URL) {
+        guard let webView, acceptsImagePaste,
+              let resolvedURL = PreviewDocumentSchemeHandler.url(for: localFileURL)
+        else { return }
+        let sourceLiteral = Self.javaScriptStringLiteral(markdownSource)
+        let resolvedLiteral = Self.javaScriptStringLiteral(resolvedURL.absoluteString)
+        webView.evaluateJavaScript(
+            "window.aropytInsertImage && window.aropytInsertImage(\(sourceLiteral), \(resolvedLiteral))"
+        )
     }
 
     /// Searches the rendered document text using WebKit's page-find engine.
@@ -653,6 +673,9 @@ final class PreviewViewController: NSViewController, WKNavigationDelegate, WKScr
                 let suggestedName = body["suggestedName"] as? String
             else { return }
             handleMermaidExport(svg: svg, suggestedName: suggestedName)
+        case "pasteImage":
+            guard acceptsImagePaste else { return }
+            onPasteImageRequested?()
         case "previewReady":
             if let body = message.body as? [String: Any],
                let generation = body["generation"] as? Int,
@@ -741,8 +764,7 @@ final class PreviewViewController: NSViewController, WKNavigationDelegate, WKScr
 
 private final class PreviewDocumentSchemeHandler: NSObject, WKURLSchemeHandler {
     static let scheme = "aropyt-document"
-
-    var documentDirectoryURL: URL?
+    static let rootBaseURL = URL(string: "\(scheme)://local/")!
 
     static func baseURL(for documentURL: URL?) -> URL? {
         guard let documentURL else { return nil }
@@ -757,22 +779,26 @@ private final class PreviewDocumentSchemeHandler: NSObject, WKURLSchemeHandler {
         return components.url
     }
 
+    static func url(for fileURL: URL) -> URL? {
+        var components = URLComponents()
+        components.scheme = scheme
+        components.host = "local"
+        components.path = fileURL.standardizedFileURL.path
+        return components.url
+    }
+
     func webView(_ webView: WKWebView, start urlSchemeTask: WKURLSchemeTask) {
         guard
             let requestURL = urlSchemeTask.request.url,
             requestURL.scheme == Self.scheme,
-            requestURL.host == "local",
-            let documentDirectoryURL
+            requestURL.host == "local"
         else {
             fail(urlSchemeTask, code: NSURLErrorBadURL)
             return
         }
 
-        let rootURL = documentDirectoryURL.resolvingSymlinksInPath()
         let fileURL = URL(fileURLWithPath: requestURL.path).resolvingSymlinksInPath()
-        let rootPath = rootURL.path.hasSuffix("/") ? rootURL.path : rootURL.path + "/"
-        guard fileURL.path.hasPrefix(rootPath),
-              let mimeType = Self.imageMIMEType(for: fileURL.pathExtension) else {
+        guard let mimeType = Self.imageMIMEType(for: fileURL.pathExtension) else {
             fail(urlSchemeTask, code: NSURLErrorNoPermissionsToReadFile)
             return
         }

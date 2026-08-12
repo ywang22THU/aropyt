@@ -22,6 +22,8 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         workspaceContainer?.sidebarViewController.model.fileSystem.rootURL
     }
 
+    var editorViewController: MainViewController? { mainVC }
+
     convenience init() {
         let style: NSWindow.StyleMask = [.titled, .closable, .miniaturizable, .resizable]
         let window = NSWindow(

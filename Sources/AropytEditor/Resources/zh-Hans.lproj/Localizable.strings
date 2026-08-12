@@ -116,7 +116,7 @@
 "settings.image.destination.title" = "插入图片位置";
 "settings.image.destination.original_path" = "原路径（不复制）";
 "settings.image.destination.current_directory" = "粘贴到当前目录（./）";
-"settings.image.destination.resource_directory" = "粘贴到资源目录（./assets/）";
+"settings.image.destination.resource_directory" = "粘贴到资源目录（./%@/）";
 "settings.image.resource_directory_name" = "资源目录名称";
 "settings.image.escape_urls" = "插入时自动转义图片 URL";
 "image.paste.error.title" = "无法粘贴图片";

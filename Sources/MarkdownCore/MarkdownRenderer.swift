@@ -1552,6 +1552,20 @@ public enum MarkdownRenderer {
                         if (inputDebounceId) clearTimeout(inputDebounceId);
                         inputDebounceId = setTimeout(postMarkdown, 150);
                     });
+                    content.addEventListener('paste', function(event) {
+                        var items = event.clipboardData && event.clipboardData.items
+                            ? Array.prototype.slice.call(event.clipboardData.items)
+                            : [];
+                        var containsImage = items.some(function(item) {
+                            return item && item.type && item.type.indexOf('image/') === 0;
+                        });
+                        if (!containsImage) return;
+                        event.preventDefault();
+                        if (window.webkit && window.webkit.messageHandlers
+                            && window.webkit.messageHandlers.pasteImage) {
+                            window.webkit.messageHandlers.pasteImage.postMessage(true);
+                        }
+                    }, true);
 
                     function postFlushResult(requestID, succeeded, markdown, error) {
                         if (!(window.webkit && window.webkit.messageHandlers
@@ -1737,6 +1751,39 @@ public enum MarkdownRenderer {
                         }
                         // 触发一次 input 让 Swift 收到更新
                         content.dispatchEvent(new Event('input', { bubbles: true }));
+                    };
+
+                    window.aropytInsertImage = function(source, resolvedSource) {
+                        if (!renderComplete || !source || !resolvedSource) return false;
+                        content.focus();
+                        var image = document.createElement('img');
+                        image.setAttribute('alt', '');
+                        image.setAttribute('data-aropyt-image-source', source);
+                        image.setAttribute('src', resolvedSource);
+
+                        var selection = window.getSelection();
+                        var range = selection && selection.rangeCount > 0
+                            ? selection.getRangeAt(0)
+                            : null;
+                        var container = range ? range.commonAncestorContainer : null;
+                        if (container && container.nodeType !== Node.ELEMENT_NODE) {
+                            container = container.parentElement;
+                        }
+                        if (!range || !(container === content || content.contains(container))) {
+                            range = document.createRange();
+                            range.selectNodeContents(content);
+                            range.collapse(false);
+                        }
+                        range.deleteContents();
+                        range.insertNode(image);
+                        range.setStartAfter(image);
+                        range.collapse(true);
+                        if (selection) {
+                            selection.removeAllRanges();
+                            selection.addRange(range);
+                        }
+                        content.dispatchEvent(new Event('input', { bubbles: true }));
+                        return true;
                     };
 
                     function wrapSelection(tagName) {
