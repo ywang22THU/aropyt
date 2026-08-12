@@ -6,6 +6,9 @@ final class WorkspaceContainerViewController: NSSplitViewController {
 
     var onSidebarVisibilityChanged: ((Bool) -> Void)?
     private(set) var lastToastMessage: String?
+    private(set) var isSidebarVisible = true
+
+    static let sidebarAnimationDuration: TimeInterval = 0.22
 
     private let sidebarItem: NSSplitViewItem
     private let toastLabel = NSTextField(labelWithString: "")
@@ -15,7 +18,7 @@ final class WorkspaceContainerViewController: NSSplitViewController {
          editorViewController: MainViewController) {
         self.sidebarViewController = sidebarViewController
         self.editorViewController = editorViewController
-        self.sidebarItem = NSSplitViewItem(sidebarWithViewController: sidebarViewController)
+        self.sidebarItem = NSSplitViewItem(viewController: sidebarViewController)
         super.init(nibName: nil, bundle: nil)
 
         splitView.isVertical = true
@@ -55,11 +58,14 @@ final class WorkspaceContainerViewController: NSSplitViewController {
         ])
     }
 
-    var isSidebarVisible: Bool { !sidebarItem.isCollapsed }
-
     func toggleSidebar() {
-        sidebarItem.isCollapsed.toggle()
-        let visible = isSidebarVisible
+        let visible = !isSidebarVisible
+        isSidebarVisible = visible
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = Self.sidebarAnimationDuration
+            context.allowsImplicitAnimation = true
+            sidebarItem.animator().isCollapsed = !visible
+        }
         let message = visible
             ? L10n.tr("workspace.sidebar.toast.shown", "Sidebar shown")
             : L10n.tr("workspace.sidebar.toast.hidden", "Sidebar hidden")

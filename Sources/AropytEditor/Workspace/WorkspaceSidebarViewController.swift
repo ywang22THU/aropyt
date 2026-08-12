@@ -45,7 +45,7 @@ final class WorkspaceSidebarViewController: NSViewController {
         outlineView.rowHeight = 24
         outlineView.indentationPerLevel = 14
         outlineView.autosaveExpandedItems = false
-        outlineView.style = .sourceList
+        outlineView.style = .plain
         outlineView.dataSource = self
         outlineView.delegate = self
         outlineView.setAccessibilityIdentifier("workspace.outline")
@@ -59,6 +59,7 @@ final class WorkspaceSidebarViewController: NSViewController {
         scrollView.hasHorizontalScroller = false
         scrollView.autohidesScrollers = true
         scrollView.drawsBackground = true
+        scrollView.borderType = .noBorder
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         rootView.addSubview(scrollView)
         NSLayoutConstraint.activate([

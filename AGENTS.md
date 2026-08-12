@@ -82,7 +82,8 @@ swift run AropytEditor
 - 文件树按目录优先排序，保留目录但仅显示 `.md` 文件；每一级在展开时才读取磁盘，刷新会丢弃目标目录的缓存并重新加载。
 - 点击目录会展开，点击 Markdown 文件会在同一窗口右侧复用当前 `MarkdownDocument`；切换前先 flush 预览，并通过 `NSDocument.canClose` 处理未保存内容。
 - 侧边栏右键菜单分为“新窗口打开｜新建 Markdown 文件/文件夹｜重命名/删除｜刷新｜访达显示/复制路径”，目录专属区域不会出现在文件菜单；删除使用确认 sheet，文件系统操作直接落盘。
-- 标题栏最左侧的侧边栏按钮仅在目录模式插入；展开/收起使用不同 SF Symbol，并在内容区显示短暂 toast。
+- 侧边栏按钮仅在目录模式以 `.left` 的 `NSTitlebarAccessoryViewController` 插入，保证位于红绿灯右侧、文件标题左侧；展开/收起使用不同 SF Symbol，并在内容区显示短暂 toast。
+- 目录树使用普通 `NSSplitViewItem` 和 `.plain` outline 样式，不使用悬浮 sidebar 外观；左右区域之间只有 `.thin` 纵向分割线，折叠和展开使用 0.22 秒隐式动画。
 - 活动文件或其父目录被重命名时同步更新 `document.fileURL`；被删除时清空活动文档，避免随后保存回已删除路径。
 
 ### 源码 / 预览同步
@@ -99,6 +100,7 @@ swift run AropytEditor
 ### 源码模式
 
 - `NSTextView` 必须设置 `minSize`、`maxSize`、`isVerticallyResizable`、`isHorizontallyResizable`、`autoresizingMask`、`textContainer.widthTracksTextView`、`textContainer.containerSize`，否则可能空白。
+- 源码 `NSTextView` 使用左右各 28 pt 的 `textContainerInset`，并把 `lineFragmentPadding` 设为 0；这一边距属于源码视图自身，不受目录侧边栏状态影响。
 - 源码模式关闭富文本、自动替换、拼写纠正、自动链接检测和 data detection。
 - `MarkdownHighlighter` 负责标题、引用、列表、代码、粗体、斜体、链接、图片、删除线的颜色和字体属性。
 - `allowsNonContiguousLayout` 开启；长文档先高亮可见区，再以约 64 KiB 批次让出主线程，generation 会取消过期批次。
@@ -174,6 +176,7 @@ swift run AropytEditor
 
 最近一次已知验证：
 
+- 2026-08-12：修正目录工作区 UI/UX 后，标题栏 `.left` accessory 位置、普通 split item + thin divider + plain outline、0.22 秒折叠/展开动画和源码左右 28 pt 边距共 3 项聚焦测试通过；Xcode toolchain 构建通过。完整 77 项测试中 76 项通过，唯一失败仍是既有 2 MB / 5 万行 WebKit 完整预览 30 秒超时；源码视口同步和局部高亮性能用例通过。
 - 2026-08-12：新增打开目录工作区后，目录过滤/排序/刷新/落盘操作、菜单分组与目录专属项、删除确认、目录展开/同窗文件加载、活动路径同步、新窗口动作/复制路径、标题栏按钮/状态 icon/toast 共 15 项聚焦测试通过；Xcode toolchain 构建通过。完整 76 项测试中 75 项通过；唯一失败仍是既有 2 MB / 5 万行 WebKit 渐进预览用例（首批约 1.046 秒、略超 1 秒门槛，完整预览仍于 30 秒超时）；本轮局部高亮性能用例通过。
 - 2026-08-12：新增应用启动行为设置后，偏好、General UI、启动选择、失败回退和关闭文件记录共 11 项聚焦测试通过。完整 61 项测试中 59 项通过；既有 2 MB / 5 万行 WebKit 渐进预览用例仍超时，既有局部高亮性能用例在当前机器为约 52 ms、略超 50 ms 门槛。
 - 2026-08-12：新增 `math` fenced code block、代码行号和自动换行语法偏好后，Xcode toolchain 构建通过；默认值/持久化、设置 UI、数学代码块渲染与回写、代码行号/折行/横向滚动及回写测试通过。完整 50 项测试中 49 项通过，既有 2 MB / 5 万行 WebKit 渐进预览用例仍于 30 秒超时。

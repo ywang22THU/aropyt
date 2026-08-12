@@ -4,6 +4,8 @@ import MarkdownCore
 /// 源码模式：NSTextView + 简单正则语法高亮。
 final class SourceViewController: NSViewController, NSTextViewDelegate {
 
+    static let horizontalTextInset: CGFloat = 28
+
     /// 不要用 lazy var：在 loadView 中通过 helper 创建 NSTextView 后，
     /// 容易出现 scrollView 持有的实例和 self 属性不是同一个的诡异情况。
     /// 改用普通可选属性，loadView 中显式赋值。
@@ -52,6 +54,8 @@ final class SourceViewController: NSViewController, NSTextViewDelegate {
         tv.textContainer?.containerSize = NSSize(width: contentSize.width,
                                                  height: CGFloat.greatestFiniteMagnitude)
         tv.textContainer?.widthTracksTextView = true
+        tv.textContainer?.lineFragmentPadding = 0
+        tv.textContainerInset = NSSize(width: Self.horizontalTextInset, height: 0)
         tv.layoutManager?.allowsNonContiguousLayout = true
 
         tv.isRichText = false
@@ -74,6 +78,16 @@ final class SourceViewController: NSViewController, NSTextViewDelegate {
         self.textView = tv
         self.scrollView = scroll
         self.view = scroll
+    }
+
+    var editorTextContainerInset: NSSize {
+        _ = view
+        return textView?.textContainerInset ?? .zero
+    }
+
+    var editorLineFragmentPadding: CGFloat {
+        _ = view
+        return textView?.textContainer?.lineFragmentPadding ?? 0
     }
 
     /// 由外部（document 加载完成、模式切换）调用，强制设置内容并触发高亮。

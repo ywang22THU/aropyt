@@ -9,6 +9,8 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
 
     private var mainVC: MainViewController?
     private(set) var workspaceContainer: WorkspaceContainerViewController?
+    private(set) var sidebarTitlebarAccessory: NSTitlebarAccessoryViewController?
+    private var sidebarTitlebarButton: NSButton?
     private var isObservingToolbarLocalizationChanges = false
     private var closePreparationRunning = false
     private var allowsNextClose = false
@@ -73,7 +75,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
             editorViewController: mainVC
         )
         container.onSidebarVisibilityChanged = { [weak self] _ in
-            self?.updateSidebarToolbarItem()
+            self?.updateSidebarTitlebarButton()
         }
         sidebar.onOpenFile = { [weak self] url in
             self?.openWorkspaceFile(at: url)
@@ -99,11 +101,8 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         document.workspaceRootURL = sidebar.model.fileSystem.rootURL
         contentViewController = container
         _ = container.view
-        if let toolbar = window?.toolbar,
-           !toolbar.items.contains(where: { $0.itemIdentifier == Self.sidebarItemID }) {
-            toolbar.insertItem(withItemIdentifier: Self.sidebarItemID, at: 0)
-        }
-        updateSidebarToolbarItem()
+        installSidebarTitlebarAccessoryIfNeeded()
+        updateSidebarTitlebarButton()
 
         if let fileURL = document.fileURL,
            sidebar.model.fileSystem.contains(fileURL),
@@ -268,9 +267,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         guard let items = window?.toolbar?.items else { return }
         let manager = ShortcutManager.shared
         for item in items {
-            if item.itemIdentifier == Self.sidebarItemID {
-                updateSidebarToolbarItem(item)
-            } else if item.itemIdentifier == Self.toggleModeItemID {
+            if item.itemIdentifier == Self.toggleModeItemID {
                 let label = L10n.tr("toolbar.toggle_source_preview.label", "Source / Preview")
                 let accessibility = L10n.tr(
                     "toolbar.toggle_source_preview.accessibility",
@@ -307,6 +304,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
                 }
             }
         }
+        updateSidebarTitlebarButton()
     }
 
     private func updateEditingControlsEnabled() {
@@ -318,15 +316,37 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
             item.isEnabled = enabled
             (item.view as? NSControl)?.isEnabled = enabled
         }
+        sidebarTitlebarButton?.isEnabled = enabled
         workspaceContainer?.sidebarViewController.outlineView.isEnabled = enabled
     }
 
-    private func updateSidebarToolbarItem(_ item: NSToolbarItem? = nil) {
+    private func installSidebarTitlebarAccessoryIfNeeded() {
+        guard sidebarTitlebarAccessory == nil, let window else { return }
+        let title = L10n.tr("toolbar.sidebar.hide", "Hide Sidebar")
+        let button = makeToolbarButton(
+            symbol: Self.sidebarSymbolName(isVisible: true),
+            accessibilityDescription: title,
+            tooltip: title,
+            tag: 0,
+            action: #selector(toggleSidebarFromTitlebar(_:))
+        )
+        button.identifier = NSUserInterfaceItemIdentifier("workspace.sidebar.toggle")
+
+        let holder = NSView(frame: NSRect(x: 0, y: 0, width: 40, height: 28))
+        button.frame = NSRect(x: 4, y: 0, width: 32, height: 28)
+        holder.addSubview(button)
+
+        let accessory = NSTitlebarAccessoryViewController()
+        accessory.layoutAttribute = .left
+        accessory.view = holder
+        window.addTitlebarAccessoryViewController(accessory)
+        sidebarTitlebarButton = button
+        sidebarTitlebarAccessory = accessory
+    }
+
+    private func updateSidebarTitlebarButton() {
         guard let container = workspaceContainer else { return }
-        let item = item ?? window?.toolbar?.items.first {
-            $0.itemIdentifier == Self.sidebarItemID
-        }
-        guard let item else { return }
+        guard let button = sidebarTitlebarButton else { return }
         let visible = container.isSidebarVisible
         let title = visible
             ? L10n.tr("toolbar.sidebar.hide", "Hide Sidebar")
@@ -334,14 +354,9 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         let symbol = Self.sidebarSymbolName(isVisible: visible)
         let image = NSImage(systemSymbolName: symbol, accessibilityDescription: title)
             ?? NSImage(systemSymbolName: visible ? "rectangle.leadinghalf.filled" : "rectangle", accessibilityDescription: title)
-        item.label = title
-        item.paletteLabel = title
-        item.image = image
-        item.setTooltipOnItemAndView(title)
-        if let button = item.view as? NSButton {
-            button.image = image
-            button.setAccessibilityLabel(title)
-        }
+        button.image = image
+        button.toolTip = title
+        button.setAccessibilityLabel(title)
     }
 
     static func sidebarSymbolName(isVisible: Bool) -> String {
@@ -350,7 +365,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
 
     func toggleWorkspaceSidebar() {
         workspaceContainer?.toggleSidebar()
-        updateSidebarToolbarItem()
+        updateSidebarTitlebarButton()
     }
 
     /// 描述一个格式化按钮的元数据
@@ -453,7 +468,6 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
 
 extension EditorWindowController: NSToolbarDelegate {
 
-    static let sidebarItemID    = NSToolbarItem.Identifier("AropytEditor.Sidebar")
     static let toggleModeItemID = NSToolbarItem.Identifier("AropytEditor.ToggleMode")
     static let settingsItemID   = NSToolbarItem.Identifier("AropytEditor.Settings")
 
@@ -470,7 +484,7 @@ extension EditorWindowController: NSToolbarDelegate {
 
     func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
         var ids: [NSToolbarItem.Identifier] = [
-            .flexibleSpace, .space, Self.sidebarItemID, Self.toggleModeItemID, Self.settingsItemID,
+            .flexibleSpace, .space, Self.toggleModeItemID, Self.settingsItemID,
         ]
         for btn in Self.formatButtons {
             ids.append(btn.id)
@@ -481,23 +495,6 @@ extension EditorWindowController: NSToolbarDelegate {
     func toolbar(_ toolbar: NSToolbar,
                  itemForItemIdentifier itemIdentifier: NSToolbarItem.Identifier,
                  willBeInsertedIntoToolbar flag: Bool) -> NSToolbarItem? {
-        if itemIdentifier == Self.sidebarItemID {
-            let item = NSToolbarItem(itemIdentifier: itemIdentifier)
-            let visible = workspaceContainer?.isSidebarVisible ?? true
-            let title = visible
-                ? L10n.tr("toolbar.sidebar.hide", "Hide Sidebar")
-                : L10n.tr("toolbar.sidebar.show", "Show Sidebar")
-            let symbol = Self.sidebarSymbolName(isVisible: visible)
-            item.label = title
-            item.paletteLabel = title
-            item.image = NSImage(systemSymbolName: symbol, accessibilityDescription: title)
-            item.view = makeToolbarButton(symbol: symbol,
-                                          accessibilityDescription: title,
-                                          tooltip: title,
-                                          tag: 0,
-                                          action: #selector(toggleSidebarFromToolbar(_:)))
-            return item
-        }
         if itemIdentifier == Self.toggleModeItemID {
             let item = NSToolbarItem(itemIdentifier: itemIdentifier)
             let label = L10n.tr("toolbar.toggle_source_preview.label", "Source / Preview")
@@ -583,7 +580,7 @@ extension EditorWindowController: NSToolbarDelegate {
         mainVC?.toggleMode(sender)
     }
 
-    @objc private func toggleSidebarFromToolbar(_ sender: Any?) {
+    @objc private func toggleSidebarFromTitlebar(_ sender: Any?) {
         toggleWorkspaceSidebar()
     }
 
