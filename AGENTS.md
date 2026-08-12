@@ -7,6 +7,7 @@
 - 本文件只维护三类信息：代码结构、项目进展、最近一次用户 `/goal` input。
 - 开始处理新的 `/goal` 时，把用户原始输入写入“最近一次 /goal input”。
 - 一个 goal 完成后，清空“最近一次 /goal input”，并把结果沉淀到“项目进展”或“代码结构”中。
+- 执行 `/goal` 时按可独立验证的阶段逐步创建 commit；每个阶段验证通过后及时提交，不要把整个 goal 的改动积压到最后一次性提交。
 - 每次 compact 后先读本文件，再决定还需要补读哪些源码或文档。
 - 本文件不是完整开发日志；不要把已完成 goal 的 input 长期堆在这里。
 
@@ -43,7 +44,7 @@ swift run AropytEditor
 - `Sources/AropytEditor/Window/PreviewViewController.swift`：预览模式，`WKWebView` 渐进渲染、dirty / flush 状态、JS bridge、本地资源 scheme、链接和格式化命令。
 - `Sources/AropytEditor/Highlighter/MarkdownHighlighter.swift`：支持范围高亮与段落范围扩展，并给 Markdown 链接设置 `.link` attribute。
 - `Sources/AropytEditor/AutoSave/`：`AutoSavePreferences` 和按文档串行合并请求的 `AutoSaveManager`。
-- `Sources/AropytEditor/Settings/`：Settings 窗口、General 自动保存、Shortcuts、Theme、About。
+- `Sources/AropytEditor/Settings/`：Settings 窗口、General 自动保存、Shortcuts、Theme、Syntax Preferences、About。
 - `Sources/AropytEditor/Resources/`：`marked.umd.js`、`highlight.min.js`、`katex.min.js`、`auto-render.min.js`、`katex.min.css`、`fonts/` KaTeX woff2 字体、`mermaid.min.js`、`turndown.js`、`turndown-plugin-gfm.js`、GitHub CSS 主题、`Info.plist`。
 - `package.sh`：release build、组装 `.app`、ad-hoc 签名、生成 DMG/PKG。
 - `README.md`：功能、目录、构建、打包说明。
@@ -96,7 +97,9 @@ swift run AropytEditor
 - `PreviewViewController.webView` 懒加载；`load(markdown:)` 先 `_ = self.view`。
 - `MarkdownRenderer.htmlDocument(for:configuration:)` 生成完整 HTML；Markdown 和本地化 payload 同时做 JSON 与 script 上下文转义。
 - 超长预览先 `marked.lexer`，首批最多 80 token / 64 KiB，后续按 12ms 预算空闲调度；渲染期间只读并显示进度，完成后恢复编辑。
-- 预览模式用本地 KaTeX 渲染数学公式，支持 `$...$`、`$$...$$`、`\\(...\\)`、`\\[...\\]`。进入 `marked.parse` 前会保护完整数学片段，避免 `_`、`<`、`&` 或 `\\[` 被 Markdown 解析破坏。
+- 预览模式用本地 KaTeX 渲染数学公式，默认支持 `$...$`、`$$...$$`；Syntax Preferences 可选择启用与 Markdown 转义冲突的 `\\(...\\)`、`\\[...\\]`，默认关闭。进入 `marked.parse` 前会保护启用的完整数学片段，并在 DOM 上保存原始源码、行内/行间类型和分隔符元数据，Turndown 据此无损回写公式。
+- Syntax Preferences 可选择把 `math` fenced code block 渲染为行间公式，默认关闭；开启后使用原始 fenced Markdown 元数据保证预览编辑回写不丢格式。
+- 预览代码块默认显示独立行号 gutter 并自动换行；Syntax Preferences 可分别关闭行号或关闭换行，关闭换行后超长单行使用横向滚动条。行号不进入 `<code>`，不会污染 Turndown 回写；自动换行时 gutter 会根据实际视觉折行插入空位，使后续源码行号保持对齐。
 - Mermaid 通过 `IntersectionObserver` 在接近视口时才加载脚本和渲染；每张图有独立工具栏，直接调整 SVG `viewBox` 实现保持清晰的 50%–500% 矢量缩放与拖动平移，不使用 CSS transform 放大合成层；支持重置与 SVG 导出；`data-mermaid-source` 保留原始源码供 Turndown 回写。
 - 普通预览 input 继续实时 Turndown；超长预览只标 dirty，`flushPreviewEdits` 才执行全文转换。
 - `openLink` message handler 使用系统浏览器打开链接。
@@ -132,7 +135,10 @@ swift run AropytEditor
 - 预览模式 Cmd+Click 打开链接。
 - toolbar 切换源码 / 预览。
 - toolbar 格式化按钮：bold、italic、strikethrough、H1、H2、inline code、code block、unordered list、ordered list、blockquote。
-- Settings：快捷键、主题、About（logo、版本号、权限说明）。
+- Settings：快捷键、主题、语法偏好、About（logo、版本号、权限说明）；“语法偏好 → 数学公式”可选择启用 `\\[...\\]`、`\\(...\\)` 或 `math` fenced code block，均默认关闭；“语法偏好 → 代码块”可控制行号与自动换行，二者默认开启。
+- 预览编辑回写使用数学节点元数据保留 `$...$` 与 `$$...$$` 的原始分隔符和行内/行间类型。
+- 可选的 `math` fenced code block 预览渲染与原格式回写。
+- 预览代码块行号与自动换行偏好；二者默认开启，关闭自动换行时显示横向滚动条。
 - 主题偏好由 `AppThemePreferences` 持久化，并在应用启动、创建窗口前恢复；重启后继续保持浅色或深色选择。
 - 超长 Markdown 源码增量高亮与预览渐进加载（目标 2 MB / 5 万行）。
 - 长文档预览 dirty / 异步 flush 与保存、关闭、退出一致性保护。
@@ -154,6 +160,8 @@ swift run AropytEditor
 
 最近一次已知验证：
 
+- 2026-08-12：新增 `math` fenced code block、代码行号和自动换行语法偏好后，Xcode toolchain 构建通过；默认值/持久化、设置 UI、数学代码块渲染与回写、代码行号/折行/横向滚动及回写测试通过。完整 50 项测试中 49 项通过，既有 2 MB / 5 万行 WebKit 渐进预览用例仍于 30 秒超时。
+- 2026-08-12：新增数学公式元数据回写和 Syntax Preferences 后，Xcode toolchain 构建通过；美元公式回写、反斜杠公式开关、偏好持久化和设置 UI 共 10 项聚焦测试通过。完整 47 项测试中 46 项通过，既有 2 MB / 5 万行 WebKit 渐进预览用例仍于 30 秒超时。
 - 2026-08-11：新增磁盘重新加载与冲突保护后，Xcode toolchain 构建通过；重新加载、未保存修改冲突和未命名文档 3 项测试通过。
 - 2026-08-11：新增全文查找与替换后，Xcode toolchain 构建通过；源码查找 / 替换 5 项和真实 WebKit 预览查找 / 替换用例通过。完整 38 项测试中 37 项通过，既有 2 MB / 5 万行 WebKit 渐进预览用例仍于 30 秒超时。
 - 2026-08-03：修复主题重启恢复后，Xcode toolchain `swift build --disable-sandbox` 通过；`AppThemePreferencesTests` 2 项通过。完整 31 项测试中主题与其他 30 项通过，既有 2 MB / 5 万行 WebKit 渐进预览用例在当前环境下仍于 30 秒超时。

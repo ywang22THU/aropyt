@@ -174,7 +174,7 @@ final class AboutTabViewController: NSViewController {
                 title: L10n.tr("settings.about.permissions.local_data.title", "Local Data"),
                 body: L10n.tr(
                     "settings.about.permissions.local_data.body",
-                    "Shortcuts, theme, and language preferences are stored locally in macOS user defaults."
+                    "Shortcuts, theme, syntax, and language preferences are stored locally in macOS user defaults."
                 )
             ),
         ]

@@ -117,6 +117,243 @@ struct PreviewIntegrationTests {
         #expect(!controller.isDirty)
     }
 
+    @Test func previewRoundTripPreservesDollarMathFromMetadata() async throws {
+        _ = NSApplication.shared
+        let preferences = SyntaxPreferences.shared
+        let oldValue = preferences.supportsBackslashMathDelimiters
+        preferences.supportsBackslashMathDelimiters = false
+        defer { preferences.supportsBackslashMathDelimiters = oldValue }
+
+        let markdown = #"""
+        Before [literal]
+
+        $$
+        x^2 + y^2
+        $$
+
+        Inline $z + 1$.
+        """#
+        let controller = PreviewViewController()
+        var convertedMarkdown: String?
+        controller.onMarkdownEdited = { convertedMarkdown = $0 }
+        _ = controller.view
+        controller.load(markdown: markdown)
+        try await waitUntilReady(controller, timeout: .seconds(10))
+        let webView = controller.view as! WKWebView
+
+        let metadata = try await javaScriptString("""
+            Array.from(document.querySelectorAll('.aropyt-math-segment')).map(function(node) {
+                return [
+                    decodeURIComponent(node.getAttribute('data-aropyt-math-source') || ''),
+                    node.getAttribute('data-aropyt-math-display'),
+                    node.getAttribute('data-aropyt-math-delimiter')
+                ].join('|');
+            }).join(';;');
+            """, in: webView)
+        #expect(metadata.contains("$$\nx^2 + y^2\n$$|true|double-dollar"), "\(metadata)")
+        #expect(metadata.contains("$z + 1$|false|single-dollar"), "\(metadata)")
+
+        try await runJavaScript(
+            "document.querySelector('p').append(document.createTextNode(' edited'));"
+                + "document.getElementById('content').dispatchEvent(new Event('input', {bubbles:true}));",
+            in: webView
+        )
+        try await waitForCondition(timeout: .seconds(2)) { convertedMarkdown != nil }
+
+        let converted = try #require(convertedMarkdown)
+        #expect(converted.contains("$$\nx^2 + y^2\n$$"), "\(converted)")
+        #expect(converted.contains("$z + 1$"), "\(converted)")
+
+        let reloaded = PreviewViewController()
+        _ = reloaded.view
+        reloaded.load(markdown: converted)
+        try await waitUntilReady(reloaded, timeout: .seconds(10))
+        let reloadedCounts = try await javaScriptString("""
+            [
+                document.querySelectorAll('.aropyt-math-segment[data-aropyt-math-display="true"]').length,
+                document.querySelectorAll('.aropyt-math-segment[data-aropyt-math-display="false"]').length,
+                document.getElementById('content').textContent.includes('[literal]')
+            ].join('|');
+            """, in: reloaded.view as! WKWebView)
+        #expect(reloadedCounts == "1|1|true", "\(reloadedCounts)")
+    }
+
+    @Test func backslashMathDelimitersFollowSyntaxPreference() async throws {
+        _ = NSApplication.shared
+        let preferences = SyntaxPreferences.shared
+        let oldValue = preferences.supportsBackslashMathDelimiters
+        preferences.supportsBackslashMathDelimiters = false
+        defer { preferences.supportsBackslashMathDelimiters = oldValue }
+
+        let markdown = #"Escaped \[plain words\] and \(more words\)."#
+        let controller = PreviewViewController()
+        _ = controller.view
+        controller.load(markdown: markdown)
+        try await waitUntilReady(controller, timeout: .seconds(10))
+        let webView = controller.view as! WKWebView
+
+        let disabledState = try await javaScriptString("""
+            [
+                document.querySelectorAll('.katex').length,
+                document.getElementById('content').textContent.includes('[plain words]'),
+                document.getElementById('content').textContent.includes('(more words)')
+            ].join('|');
+            """, in: webView)
+        #expect(disabledState == "0|true|true", "\(disabledState)")
+
+        preferences.supportsBackslashMathDelimiters = true
+        try await waitUntilReady(controller, timeout: .seconds(10))
+        let enabledState = try await javaScriptString("""
+            [
+                document.querySelectorAll('.katex-display').length,
+                document.querySelectorAll('.aropyt-math-segment[data-aropyt-math-delimiter="backslash-bracket"]').length,
+                document.querySelectorAll('.aropyt-math-segment[data-aropyt-math-delimiter="backslash-parenthesis"]').length
+            ].join('|');
+            """, in: webView)
+        #expect(enabledState == "1|1|1", "\(enabledState)")
+    }
+
+    @Test func mathCodeBlocksFollowPreferenceAndRoundTrip() async throws {
+        _ = NSApplication.shared
+        let preferences = SyntaxPreferences.shared
+        let oldMathCodeBlocks = preferences.supportsMathCodeBlocks
+        let oldLineNumbers = preferences.showsCodeBlockLineNumbers
+        let oldLineWrapping = preferences.wrapsCodeBlockLines
+        preferences.supportsMathCodeBlocks = false
+        preferences.showsCodeBlockLineNumbers = true
+        preferences.wrapsCodeBlockLines = true
+        defer {
+            preferences.supportsMathCodeBlocks = oldMathCodeBlocks
+            preferences.showsCodeBlockLineNumbers = oldLineNumbers
+            preferences.wrapsCodeBlockLines = oldLineWrapping
+        }
+
+        let markdown = """
+        Before
+
+        ```math
+        x^2 + y^2
+        ```
+
+        After
+        """
+        let controller = PreviewViewController()
+        var convertedMarkdown: String?
+        controller.onMarkdownEdited = { convertedMarkdown = $0 }
+        _ = controller.view
+        controller.load(markdown: markdown)
+        try await waitUntilReady(controller, timeout: .seconds(10))
+        let webView = controller.view as! WKWebView
+
+        let disabledState = try await javaScriptString("""
+            [
+                document.querySelectorAll('pre > code.language-math').length,
+                document.querySelectorAll('[data-aropyt-math-delimiter="fenced-math"]').length,
+                document.querySelectorAll('.aropyt-code-line-numbers').length
+            ].join('|');
+            """, in: webView)
+        #expect(disabledState == "1|0|1", "\(disabledState)")
+
+        preferences.supportsMathCodeBlocks = true
+        try await waitUntilReady(controller, timeout: .seconds(10))
+        let enabledState = try await javaScriptString("""
+            (function() {
+                var block = document.querySelector('[data-aropyt-math-delimiter="fenced-math"]');
+                return [
+                    document.querySelectorAll('pre > code.language-math').length,
+                    block ? decodeURIComponent(block.getAttribute('data-aropyt-math-source') || '') : '',
+                    block ? block.querySelectorAll('.katex-display').length : 0
+                ].join('|');
+            })();
+            """, in: webView)
+        #expect(enabledState.contains("0|```math\nx^2 + y^2\n```|1"), "\(enabledState)")
+
+        try await runJavaScript(
+            "document.querySelector('p').append(document.createTextNode(' edited'));"
+                + "document.getElementById('content').dispatchEvent(new Event('input', {bubbles:true}));",
+            in: webView
+        )
+        try await waitForCondition(timeout: .seconds(2)) { convertedMarkdown != nil }
+        #expect(convertedMarkdown?.contains("```math\nx^2 + y^2\n```") == true)
+    }
+
+    @Test func codeBlockLineNumbersAndWrappingFollowPreferences() async throws {
+        _ = NSApplication.shared
+        let preferences = SyntaxPreferences.shared
+        let oldMathCodeBlocks = preferences.supportsMathCodeBlocks
+        let oldLineNumbers = preferences.showsCodeBlockLineNumbers
+        let oldLineWrapping = preferences.wrapsCodeBlockLines
+        preferences.supportsMathCodeBlocks = false
+        preferences.showsCodeBlockLineNumbers = true
+        preferences.wrapsCodeBlockLines = true
+        defer {
+            preferences.supportsMathCodeBlocks = oldMathCodeBlocks
+            preferences.showsCodeBlockLineNumbers = oldLineNumbers
+            preferences.wrapsCodeBlockLines = oldLineWrapping
+        }
+
+        let longLine = String(repeating: "abcdefghij", count: 120)
+        let markdown = "```swift\nfirst\n\(longLine)\nthird\n```"
+        let controller = PreviewViewController()
+        var convertedMarkdown: String?
+        controller.onMarkdownEdited = { convertedMarkdown = $0 }
+        _ = controller.view
+        controller.load(markdown: markdown)
+        try await waitUntilReady(controller, timeout: .seconds(10))
+        let webView = controller.view as! WKWebView
+        let gutterReady = try await waitForJavaScriptBoolean(
+            "(document.querySelector('.aropyt-code-line-numbers')?.textContent || '').length > 0",
+            in: webView,
+            timeout: .seconds(2)
+        )
+        #expect(gutterReady)
+
+        let defaultState = try await javaScriptString("""
+            (function() {
+                var pre = document.querySelector('pre');
+                var code = pre.querySelector('code');
+                var gutter = pre.querySelector('.aropyt-code-line-numbers');
+                var labels = gutter ? gutter.textContent.split('\\n') : [];
+                return [
+                    labels.filter(Boolean).join(','),
+                    labels.length > 3,
+                    pre.classList.contains('aropyt-code-wrap'),
+                    getComputedStyle(code).whiteSpace,
+                    getComputedStyle(pre).overflowX,
+                    pre.scrollWidth <= pre.clientWidth,
+                    pre.getAttribute('data-aropyt-line-number-error') || ''
+                ].join('|');
+            })();
+            """, in: webView)
+        #expect(defaultState == "1,2,3|true|true|pre-wrap|hidden|true|", "\(defaultState)")
+
+        preferences.showsCodeBlockLineNumbers = false
+        preferences.wrapsCodeBlockLines = false
+        try await waitUntilReady(controller, timeout: .seconds(10))
+        let disabledState = try await javaScriptString("""
+            (function() {
+                var pre = document.querySelector('pre');
+                var code = pre.querySelector('code');
+                return [
+                    pre.querySelectorAll('.aropyt-code-line-numbers').length,
+                    pre.classList.contains('aropyt-code-nowrap'),
+                    getComputedStyle(code).whiteSpace,
+                    getComputedStyle(pre).overflowX,
+                    pre.scrollWidth > pre.clientWidth
+                ].join('|');
+            })();
+            """, in: webView)
+        #expect(disabledState == "0|true|pre|auto|true", "\(disabledState)")
+
+        try await runJavaScript(
+            "document.getElementById('content').append(document.createTextNode(' edited'));"
+                + "document.getElementById('content').dispatchEvent(new Event('input', {bubbles:true}));",
+            in: webView
+        )
+        try await waitForCondition(timeout: .seconds(2)) { convertedMarkdown != nil }
+        #expect(convertedMarkdown?.contains("```swift\nfirst\n\(longLine)\nthird\n```") == true)
+    }
+
     @Test func searchesRenderedPreviewAndMovesBetweenMatches() async throws {
         _ = NSApplication.shared
         let controller = PreviewViewController()

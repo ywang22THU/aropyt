@@ -79,6 +79,7 @@
 "settings.tabs.general" = "通用";
 "settings.tabs.shortcuts" = "快捷键";
 "settings.tabs.theme" = "主题";
+"settings.tabs.syntax" = "语法偏好";
 "settings.tabs.about" = "关于";
 "settings.theme.title" = "外观";
 "settings.theme.option.system" = "跟随系统";
@@ -96,6 +97,14 @@
 "settings.autosave.mode.after_delay" = "延迟后";
 "settings.autosave.mode.never" = "永不";
 "settings.autosave.on_change_warning" = "“内容变化时”可能造成较高 CPU 占用：在预览中编辑超长文档会反复转换全文。";
+"settings.syntax.title" = "语法偏好";
+"settings.syntax.math.title" = "数学公式";
+"settings.syntax.math.backslash_delimiters" = "支持 \\[\\] 与 \\(\\) 显示公式";
+"settings.syntax.math.backslash_delimiters_warning" = "此语法与 Markdown 方括号转义存在冲突，会导致在预览模式编辑文本时出现问题。";
+"settings.syntax.math.code_blocks" = "支持数学代码块 ```math 格式";
+"settings.syntax.code_block.title" = "代码块";
+"settings.syntax.code_block.line_numbers" = "显示行号";
+"settings.syntax.code_block.line_wrapping" = "自动换行";
 
 "preview.render.progress" = "正在渲染预览… %d / %d 个内容块";
 "preview.render.complete" = "预览渲染完成";
@@ -143,7 +152,7 @@
 "settings.about.permissions.network.title" = "网络";
 "settings.about.permissions.network.body" = "Aropyt 没有账号、遥测或后台同步。Markdown 中的远程图片或链接可能会由预览或浏览器加载。";
 "settings.about.permissions.local_data.title" = "本地数据";
-"settings.about.permissions.local_data.body" = "快捷键、主题和语言偏好只保存在本机的 macOS 用户默认设置中。";
+"settings.about.permissions.local_data.body" = "快捷键、主题、语法和语言偏好只保存在本机的 macOS 用户默认设置中。";
 
 "error.file.decode_failed" = "无法解码文件内容（非 UTF-8/UTF-16）。";
 "reload.error.title" = "无法重新加载";

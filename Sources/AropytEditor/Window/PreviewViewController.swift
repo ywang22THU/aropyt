@@ -13,6 +13,20 @@ import UniformTypeIdentifiers
 /// 当外部（document）回填的内容和它一致时跳过 reload，避免打乱光标。
 final class PreviewViewController: NSViewController, WKNavigationDelegate, WKScriptMessageHandler {
 
+    private struct SyntaxRenderOptions: Equatable {
+        let supportsBackslashMathDelimiters: Bool
+        let supportsMathCodeBlocks: Bool
+        let showsCodeBlockLineNumbers: Bool
+        let wrapsCodeBlockLines: Bool
+
+        init(preferences: SyntaxPreferences) {
+            supportsBackslashMathDelimiters = preferences.supportsBackslashMathDelimiters
+            supportsMathCodeBlocks = preferences.supportsMathCodeBlocks
+            showsCodeBlockLineNumbers = preferences.showsCodeBlockLineNumbers
+            wrapsCodeBlockLines = preferences.wrapsCodeBlockLines
+        }
+    }
+
     enum RenderState: Equatable {
         case idle
         case rendering(completed: Int, total: Int)
@@ -39,6 +53,8 @@ final class PreviewViewController: NSViewController, WKNavigationDelegate, WKScr
     private(set) var isDirty = false
     private(set) var isFlushing = false
     private var renderGeneration = 0
+    private var renderedSyntaxOptions: SyntaxRenderOptions?
+    private var syntaxPreferenceReloadPending = false
     private var hasCommittedDocument = false
     private(set) var navigationDidFinish = false
     private(set) var lastNavigationErrorDescription: String?
@@ -80,6 +96,12 @@ final class PreviewViewController: NSViewController, WKNavigationDelegate, WKScr
             name: AutoSavePreferences.didChangeNotification,
             object: AutoSavePreferences.shared
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(syntaxPreferencesDidChange(_:)),
+            name: SyntaxPreferences.didChangeNotification,
+            object: SyntaxPreferences.shared
+        )
 
         if let pending = pendingMarkdown {
             pendingMarkdown = nil
@@ -107,7 +129,10 @@ final class PreviewViewController: NSViewController, WKNavigationDelegate, WKScr
             pendingMarkdown = markdown
             return
         }
-        if let last = lastSentMarkdown, last == markdown {
+        let syntaxOptions = SyntaxRenderOptions(preferences: SyntaxPreferences.shared)
+        if let last = lastSentMarkdown,
+           last == markdown,
+           renderedSyntaxOptions == syntaxOptions {
             return
         }
         renderInternal(markdown: markdown)
@@ -121,6 +146,8 @@ final class PreviewViewController: NSViewController, WKNavigationDelegate, WKScr
         renderState = .idle
         setDirty(false)
         lastSentMarkdown = markdown
+        let syntaxOptions = SyntaxRenderOptions(preferences: SyntaxPreferences.shared)
+        renderedSyntaxOptions = syntaxOptions
         let isLongDocument = LongDocumentPolicy.isLongDocument(markdown)
         let configuration = PreviewRenderConfiguration(
             isLongDocument: isLongDocument,
@@ -133,6 +160,10 @@ final class PreviewViewController: NSViewController, WKNavigationDelegate, WKScr
                 "On Change is active. Preview edits to this long document require repeated full-document conversion."
             ),
             showsAutoSaveWarning: AutoSavePreferences.shared.mode == .onChange,
+            supportsBackslashMathDelimiters: syntaxOptions.supportsBackslashMathDelimiters,
+            supportsMathCodeBlocks: syntaxOptions.supportsMathCodeBlocks,
+            showsCodeBlockLineNumbers: syntaxOptions.showsCodeBlockLineNumbers,
+            wrapsCodeBlockLines: syntaxOptions.wrapsCodeBlockLines,
             mermaidZoomOutText: L10n.tr("preview.mermaid.zoom_out", "Zoom out"),
             mermaidZoomInText: L10n.tr("preview.mermaid.zoom_in", "Zoom in"),
             mermaidResetText: L10n.tr("preview.mermaid.reset", "Reset view"),
@@ -503,6 +534,25 @@ final class PreviewViewController: NSViewController, WKNavigationDelegate, WKScr
         )
     }
 
+    @objc private func syntaxPreferencesDidChange(_ notification: Notification) {
+        guard !isDirty, !isFlushing, let markdown = lastSentMarkdown else {
+            syntaxPreferenceReloadPending = true
+            return
+        }
+        syntaxPreferenceReloadPending = false
+        renderInternal(markdown: markdown)
+    }
+
+    private func applyPendingSyntaxPreferenceIfPossible() {
+        guard syntaxPreferenceReloadPending,
+              !isDirty,
+              !isFlushing,
+              let markdown = lastSentMarkdown
+        else { return }
+        syntaxPreferenceReloadPending = false
+        renderInternal(markdown: markdown)
+    }
+
     private static func javaScriptStringLiteral(_ string: String) -> String {
         let data = (try? JSONSerialization.data(withJSONObject: [string], options: [.fragmentsAllowed]))
             ?? Data("[\"\"]".utf8)
@@ -574,6 +624,7 @@ final class PreviewViewController: NSViewController, WKNavigationDelegate, WKScr
             lastSentMarkdown = md
             setDirty(false)
             onMarkdownEdited?(md)
+            applyPendingSyntaxPreferenceIfPossible()
         case "openLink":
             guard let s = message.body as? String,
                   let url = URL(string: s) else { return }
@@ -624,6 +675,7 @@ final class PreviewViewController: NSViewController, WKNavigationDelegate, WKScr
                 let markdown = body["markdown"] as? String
                 if let markdown { lastSentMarkdown = markdown }
                 finishFlush(.success(markdown))
+                applyPendingSyntaxPreferenceIfPossible()
             } else {
                 let reason = body["error"] as? String ?? ""
                 showLocalizedFlushError(reason: reason)

@@ -8,6 +8,10 @@ public struct PreviewRenderConfiguration: Sendable {
     public var convertingText: String
     public var autoSaveWarningText: String
     public var showsAutoSaveWarning: Bool
+    public var supportsBackslashMathDelimiters: Bool
+    public var supportsMathCodeBlocks: Bool
+    public var showsCodeBlockLineNumbers: Bool
+    public var wrapsCodeBlockLines: Bool
     public var mermaidZoomOutText: String
     public var mermaidZoomInText: String
     public var mermaidResetText: String
@@ -21,6 +25,10 @@ public struct PreviewRenderConfiguration: Sendable {
                 convertingText: String = "Converting preview edits…",
                 autoSaveWarningText: String = "On Change is active. Preview edits to this long document require repeated full-document conversion.",
                 showsAutoSaveWarning: Bool = false,
+                supportsBackslashMathDelimiters: Bool = false,
+                supportsMathCodeBlocks: Bool = false,
+                showsCodeBlockLineNumbers: Bool = true,
+                wrapsCodeBlockLines: Bool = true,
                 mermaidZoomOutText: String = "Zoom out",
                 mermaidZoomInText: String = "Zoom in",
                 mermaidResetText: String = "Reset view",
@@ -33,6 +41,10 @@ public struct PreviewRenderConfiguration: Sendable {
         self.convertingText = convertingText
         self.autoSaveWarningText = autoSaveWarningText
         self.showsAutoSaveWarning = showsAutoSaveWarning
+        self.supportsBackslashMathDelimiters = supportsBackslashMathDelimiters
+        self.supportsMathCodeBlocks = supportsMathCodeBlocks
+        self.showsCodeBlockLineNumbers = showsCodeBlockLineNumbers
+        self.wrapsCodeBlockLines = wrapsCodeBlockLines
         self.mermaidZoomOutText = mermaidZoomOutText
         self.mermaidZoomInText = mermaidZoomInText
         self.mermaidResetText = mermaidResetText
@@ -118,6 +130,16 @@ public enum MarkdownRenderer {
                     padding: 0;
                     overflow: auto;
                 }
+                .markdown-body pre.aropyt-code-block {
+                    align-items: stretch;
+                    display: flex;
+                }
+                .markdown-body pre.aropyt-code-wrap {
+                    overflow-x: hidden;
+                }
+                .markdown-body pre.aropyt-code-nowrap {
+                    overflow-x: auto;
+                }
                 .markdown-body pre code,
                 .markdown-body pre code.hljs {
                     display: block;
@@ -128,6 +150,35 @@ public enum MarkdownRenderer {
                     line-height: 1.5;
                     border-radius: 6px;
                 }
+                .markdown-body pre.aropyt-code-wrap code {
+                    flex: 1 1 auto;
+                    min-width: 0;
+                    overflow-wrap: anywhere;
+                    white-space: pre-wrap;
+                }
+                .markdown-body pre.aropyt-code-nowrap code {
+                    flex: 1 0 auto;
+                    min-width: max-content;
+                    white-space: pre;
+                }
+                .aropyt-code-line-numbers {
+                    background: #eef1f4;
+                    border-right: 1px solid rgba(110,118,129,0.22);
+                    box-sizing: border-box;
+                    color: #8c959f;
+                    flex: 0 0 auto;
+                    font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, monospace;
+                    font-size: 13px;
+                    line-height: 1.5;
+                    padding: 14px 10px 14px 12px;
+                    position: sticky;
+                    left: 0;
+                    text-align: right;
+                    user-select: none;
+                    white-space: pre;
+                    z-index: 1;
+                }
+                .aropyt-math-metadata-sentinel { display: none; }
                 /* 行内 code */
                 .markdown-body code:not(pre code) {
                     background: rgba(175,184,193,0.2);
@@ -256,6 +307,11 @@ public enum MarkdownRenderer {
                     .markdown-body code:not(pre code) {
                         background: rgba(110,118,129,0.4);
                     }
+                    .aropyt-code-line-numbers {
+                        background: #1c2128;
+                        border-right-color: rgba(139,148,158,0.24);
+                        color: #6e7681;
+                    }
                     #preview-status { color: #8c959f; }
                     #preview-warning { color: #d29922; }
                     #preview-error { color: #ff7b72; }
@@ -296,6 +352,10 @@ public enum MarkdownRenderer {
                     var mermaidExportText = \(mermaidExportText);
                     var mermaidPanText = \(mermaidPanText);
                     var showsAutoSaveWarning = \(configuration.showsAutoSaveWarning ? "true" : "false");
+                    var supportsBackslashMathDelimiters = \(configuration.supportsBackslashMathDelimiters ? "true" : "false");
+                    var supportsMathCodeBlocks = \(configuration.supportsMathCodeBlocks ? "true" : "false");
+                    var showsCodeBlockLineNumbers = \(configuration.showsCodeBlockLineNumbers ? "true" : "false");
+                    var wrapsCodeBlockLines = \(configuration.wrapsCodeBlockLines ? "true" : "false");
                     var renderCancelled = false;
                     var renderComplete = false;
                     var protectedMathSegments = [];
@@ -345,9 +405,14 @@ public enum MarkdownRenderer {
 
                     function stashMath(segment, display, sourceStart, protectedStart) {
                         var key = mathKey(protectedMathSegments.length);
+                        var delimiter = 'single-dollar';
+                        if (segment.startsWith('$$')) delimiter = 'double-dollar';
+                        else if (segment.startsWith('\\\\[')) delimiter = 'backslash-bracket';
+                        else if (segment.startsWith('\\\\(')) delimiter = 'backslash-parenthesis';
                         protectedMathSegments.push({
                             segment: segment,
                             display: display,
+                            delimiter: delimiter,
                             sourceStart: sourceStart,
                             sourceEnd: sourceStart + segment.length,
                             protectedStart: protectedStart,
@@ -395,7 +460,9 @@ public enum MarkdownRenderer {
                                 }
                             }
 
-                            if (markdown.charCodeAt(i) === 92 && markdown.charAt(i + 1) === '[') {
+                            if (supportsBackslashMathDelimiters
+                                && markdown.charCodeAt(i) === 92
+                                && markdown.charAt(i + 1) === '[') {
                                 var displayBracketEnd = findBackslashDelimitedEnd(markdown, i + 2, ']');
                                 if (displayBracketEnd !== -1) {
                                     output += stashMath(
@@ -409,7 +476,9 @@ public enum MarkdownRenderer {
                                 }
                             }
 
-                            if (markdown.charCodeAt(i) === 92 && markdown.charAt(i + 1) === '(') {
+                            if (supportsBackslashMathDelimiters
+                                && markdown.charCodeAt(i) === 92
+                                && markdown.charAt(i + 1) === '(') {
                                 var inlineParenEnd = findBackslashDelimitedEnd(markdown, i + 2, ')');
                                 if (inlineParenEnd !== -1) {
                                     output += stashMath(
@@ -486,12 +555,22 @@ public enum MarkdownRenderer {
                             if (!record) return;
                             var key = mathKey(index);
                             var mathHtml = escapeHtmlText(record.segment);
+                            var metadata = ' data-aropyt-math-source="'
+                                + encodeURIComponent(record.segment)
+                                + '" data-aropyt-math-display="'
+                                + (record.display ? 'true' : 'false')
+                                + '" data-aropyt-math-delimiter="'
+                                + record.delimiter
+                                + '"';
                             if (record.display) {
-                                var blockHtml = '<div class="aropyt-math-block">' + mathHtml + '</div>';
+                                var blockHtml = '<div class="aropyt-math-block aropyt-math-segment"'
+                                    + metadata + '>' + mathHtml + '</div>';
                                 restored = restored.replaceAll('<p>' + key + '</p>', blockHtml);
                                 restored = restored.replaceAll(key, blockHtml);
                             } else {
-                                restored = restored.replaceAll(key, mathHtml);
+                                var inlineHtml = '<span class="aropyt-math-segment"'
+                                    + metadata + '>' + mathHtml + '</span>';
+                                restored = restored.replaceAll(key, inlineHtml);
                             }
                         });
                         return restored;
@@ -500,13 +579,18 @@ public enum MarkdownRenderer {
                     function renderMath(root) {
                         if (!window.renderMathInElement) return;
                         try {
-                            renderMathInElement(root, {
-                                delimiters: [
-                                    { left: '$$', right: '$$', display: true },
+                            var delimiters = [
+                                { left: '$$', right: '$$', display: true }
+                            ];
+                            if (supportsBackslashMathDelimiters) {
+                                delimiters.push(
                                     { left: '\\\\[', right: '\\\\]', display: true },
-                                    { left: '\\\\(', right: '\\\\)', display: false },
-                                    { left: '$', right: '$', display: false }
-                                ],
+                                    { left: '\\\\(', right: '\\\\)', display: false }
+                                );
+                            }
+                            delimiters.push({ left: '$', right: '$', display: false });
+                            renderMathInElement(root, {
+                                delimiters: delimiters,
                                 throwOnError: false,
                                 strict: 'ignore',
                                 ignoredTags: [
@@ -522,6 +606,162 @@ public enum MarkdownRenderer {
                         } catch (e) {
                             console.error('math render failed:', e);
                         }
+                    }
+
+                    function prepareMathCodeBlocks(root) {
+                        if (!supportsMathCodeBlocks || !window.katex) return;
+                        root.querySelectorAll('pre > code.language-math').forEach(function(code) {
+                            var pre = code.parentElement;
+                            if (!pre) return;
+                            var source = code.textContent || '';
+                            if (source.endsWith('\\n')) source = source.slice(0, -1);
+                            var markdown = '```math\\n' + source + '\\n```';
+                            var block = document.createElement('div');
+                            block.className = 'aropyt-math-block aropyt-math-segment';
+                            block.setAttribute('data-aropyt-math-source', encodeURIComponent(markdown));
+                            block.setAttribute('data-aropyt-math-display', 'true');
+                            block.setAttribute('data-aropyt-math-delimiter', 'fenced-math');
+                            try {
+                                katex.render(source, block, {
+                                    displayMode: true,
+                                    throwOnError: false,
+                                    strict: 'ignore'
+                                });
+                            } catch (_) {
+                                block.textContent = source;
+                            }
+                            var sentinel = document.createElement('span');
+                            sentinel.className = 'aropyt-math-metadata-sentinel';
+                            sentinel.setAttribute('aria-hidden', 'true');
+                            sentinel.textContent = '\\u200b';
+                            block.appendChild(sentinel);
+                            pre.replaceWith(block);
+                        });
+                    }
+
+                    function applyCodeBlockPreferences(root) {
+                        function codeTextRecords(code) {
+                            var walker = document.createTreeWalker(code, NodeFilter.SHOW_TEXT);
+                            var records = [];
+                            var total = 0;
+                            var node;
+                            while ((node = walker.nextNode())) {
+                                var length = node.nodeValue.length;
+                                records.push({ node: node, start: total, end: total + length });
+                                total += length;
+                            }
+                            return records;
+                        }
+
+                        function codeTextPosition(records, requestedOffset) {
+                            var offset = Math.max(0, requestedOffset);
+                            var low = 0;
+                            var high = records.length - 1;
+                            while (low <= high) {
+                                var middle = Math.floor((low + high) / 2);
+                                var record = records[middle];
+                                if (offset < record.start) high = middle - 1;
+                                else if (offset > record.end) low = middle + 1;
+                                else return { node: record.node, offset: offset - record.start };
+                            }
+                            var last = records[records.length - 1];
+                            return last
+                                ? { node: last.node, offset: last.node.nodeValue.length }
+                                : null;
+                        }
+
+                        function visualLineCount(textRecords, start, end) {
+                            if (end <= start) return 1;
+                            if (textRecords.length === 0) return 1;
+
+                            var startPosition = codeTextPosition(textRecords, start);
+                            var endPosition = codeTextPosition(textRecords, end);
+                            if (!startPosition || !endPosition) return 1;
+                            var range = document.createRange();
+                            range.setStart(startPosition.node, startPosition.offset);
+                            range.setEnd(endPosition.node, endPosition.offset);
+                            var tops = [];
+                            Array.prototype.forEach.call(range.getClientRects(), function(rect) {
+                                var top = Math.round(rect.top * 2) / 2;
+                                if (tops.indexOf(top) === -1) tops.push(top);
+                            });
+                            return Math.max(1, tops.length);
+                        }
+
+                        function updateLineNumberGutter(pre, code, gutter) {
+                            var text = code.textContent || '';
+                            if (text.endsWith('\\n')) text = text.slice(0, -1);
+                            var lines = text.split('\\n');
+                            if (lines.length === 0) lines = [''];
+                            var textRecords = wrapsCodeBlockLines ? codeTextRecords(code) : [];
+                            var labels = [];
+                            var offset = 0;
+                            lines.forEach(function(line, index) {
+                                labels.push(String(index + 1));
+                                if (wrapsCodeBlockLines) {
+                                    var visualLines = visualLineCount(
+                                        textRecords,
+                                        offset,
+                                        offset + line.length
+                                    );
+                                    for (var extra = 1; extra < visualLines; extra++) labels.push('');
+                                }
+                                offset += line.length + 1;
+                            });
+                            gutter.textContent = labels.join('\\n');
+                        }
+
+                        root.querySelectorAll('pre').forEach(function(pre) {
+                            var code = Array.prototype.find.call(pre.children, function(child) {
+                                return child.nodeName === 'CODE';
+                            });
+                            if (!code) return;
+
+                            pre.classList.add('aropyt-code-block');
+                            pre.classList.toggle('aropyt-code-wrap', wrapsCodeBlockLines);
+                            pre.classList.toggle('aropyt-code-nowrap', !wrapsCodeBlockLines);
+                            if (!showsCodeBlockLineNumbers) return;
+
+                            var gutter = document.createElement('span');
+                            gutter.className = 'aropyt-code-line-numbers';
+                            gutter.setAttribute('contenteditable', 'false');
+                            gutter.setAttribute('aria-hidden', 'true');
+                            pre.insertBefore(gutter, code);
+
+                            var updateGutter = function() {
+                                window.setTimeout(function() {
+                                    if (!pre.isConnected) return;
+                                    try {
+                                        updateLineNumberGutter(pre, code, gutter);
+                                    } catch (error) {
+                                        var fallbackText = code.textContent || '';
+                                        if (fallbackText.endsWith('\\n')) {
+                                            fallbackText = fallbackText.slice(0, -1);
+                                        }
+                                        gutter.textContent = fallbackText.split('\\n').map(
+                                            function(_, index) { return String(index + 1); }
+                                        ).join('\\n');
+                                        pre.setAttribute(
+                                            'data-aropyt-line-number-error',
+                                            String(error && error.message ? error.message : error)
+                                        );
+                                    }
+                                }, 0);
+                            };
+                            updateGutter();
+                            if (window.ResizeObserver) {
+                                var resizeObserver = new ResizeObserver(updateGutter);
+                                resizeObserver.observe(pre);
+                                pre._aropytLineNumberResizeObserver = resizeObserver;
+                            }
+                            var mutationObserver = new MutationObserver(updateGutter);
+                            mutationObserver.observe(code, {
+                                childList: true,
+                                characterData: true,
+                                subtree: true
+                            });
+                            pre._aropytLineNumberMutationObserver = mutationObserver;
+                        });
                     }
 
                     var mermaidObserver = null;
@@ -909,6 +1149,7 @@ public enum MarkdownRenderer {
                     }
 
                     function processRenderedRoot(root) {
+                        prepareMathCodeBlocks(root);
                         renderMath(root);
                         prepareMermaidDiagrams(root);
                         if (window.hljs) {
@@ -916,6 +1157,7 @@ public enum MarkdownRenderer {
                                 try { hljs.highlightElement(el); } catch (e) {}
                             });
                         }
+                        applyCodeBlockPreferences(root);
                     }
 
                     function appendTokenBatch(tokens) {
@@ -1176,6 +1418,27 @@ public enum MarkdownRenderer {
                                 return tex ? '$' + tex + '$' : '';
                             }
                         });
+                        turndownService.addRule('aropytMathSegment', {
+                            filter: function(node) {
+                                return node.nodeType === 1
+                                    && node.classList
+                                    && node.classList.contains('aropyt-math-segment')
+                                    && node.hasAttribute('data-aropyt-math-source');
+                            },
+                            replacement: function(_, node) {
+                                var encoded = node.getAttribute('data-aropyt-math-source') || '';
+                                var source;
+                                try {
+                                    source = decodeURIComponent(encoded);
+                                } catch (_) {
+                                    source = '';
+                                }
+                                if (!source) return '';
+                                return node.getAttribute('data-aropyt-math-display') === 'true'
+                                    ? '\\n\\n' + source + '\\n\\n'
+                                    : source;
+                            }
+                        });
                         turndownService.addRule('mermaidDiagram', {
                             filter: function(node) {
                                 return node.nodeType === 1
@@ -1188,12 +1451,18 @@ public enum MarkdownRenderer {
                             }
                         });
                         // 让 highlight.js 的 <span class="hljs-..."> 不污染输出
+                        function directCodeChild(node) {
+                            return Array.prototype.find.call(node.children || [], function(child) {
+                                return child.nodeName === 'CODE';
+                            }) || null;
+                        }
                         turndownService.addRule('hljsCode', {
                             filter: function(node) {
-                                return node.nodeName === 'PRE' && node.firstChild && node.firstChild.nodeName === 'CODE';
+                                return node.nodeName === 'PRE' && directCodeChild(node) !== null;
                             },
                             replacement: function(_, node) {
-                                var code = node.firstChild;
+                                var code = directCodeChild(node);
+                                if (!code) return '';
                                 var lang = '';
                                 var cls = code.getAttribute('class') || '';
                                 var m = cls.match(/language-(\\S+)/);

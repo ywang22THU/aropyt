@@ -29,6 +29,40 @@ struct MarkdownRendererTests {
         #expect(html.contains("data-aropyt-source-start"))
         #expect(html.contains("window.aropytViewportSourceOffset"))
         #expect(html.contains("window.aropytScrollToSourceOffset"))
+        #expect(html.contains("var supportsBackslashMathDelimiters = false"))
+        #expect(html.contains("var supportsMathCodeBlocks = false"))
+        #expect(html.contains("var showsCodeBlockLineNumbers = true"))
+        #expect(html.contains("var wrapsCodeBlockLines = true"))
+        #expect(html.contains("data-aropyt-math-source"))
+        #expect(html.contains("data-aropyt-math-display"))
+        #expect(html.contains("data-aropyt-math-delimiter"))
+        #expect(html.contains("turndownService.addRule('aropytMathSegment'"))
+    }
+
+    @Test func backslashMathDelimiterConfigurationIsEmbedded() {
+        let configuration = PreviewRenderConfiguration(
+            isLongDocument: false,
+            supportsBackslashMathDelimiters: true
+        )
+        let html = MarkdownRenderer.htmlDocument(for: #"\[x\]"#, configuration: configuration)
+
+        #expect(html.contains("var supportsBackslashMathDelimiters = true"))
+    }
+
+    @Test func syntaxCodeBlockConfigurationIsEmbedded() {
+        let configuration = PreviewRenderConfiguration(
+            isLongDocument: false,
+            supportsMathCodeBlocks: true,
+            showsCodeBlockLineNumbers: false,
+            wrapsCodeBlockLines: false
+        )
+        let html = MarkdownRenderer.htmlDocument(for: "```math\nx^2\n```", configuration: configuration)
+
+        #expect(html.contains("var supportsMathCodeBlocks = true"))
+        #expect(html.contains("var showsCodeBlockLineNumbers = false"))
+        #expect(html.contains("var wrapsCodeBlockLines = false"))
+        #expect(html.contains("function prepareMathCodeBlocks(root)"))
+        #expect(html.contains("function applyCodeBlockPreferences(root)"))
     }
 
     @Test func localizedConfigurationIsSafelyEmbedded() {

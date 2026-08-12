@@ -9,14 +9,14 @@ macOS 上的本地 Markdown 编辑器，使用 Swift + AppKit 开发，纯 Swift
 -   打开 / 新建 / 保存 `.md` 文件（NSDocument）
 -   **源码模式**：基于 `NSTextView`，带正则语法高亮
 -   **预览模式**：基于 `WKWebView` + 本地 `marked.js` + `highlight.js`，支持完整 CommonMark/GFM
-    -   粗体、斜体、删除线、列表、标题、代码块（带语法高亮）、表格、图片、链接、引用块、HR 等
-    -   数学公式：支持 `$...$`、`$$...$$`、`\\(...\\)`、`\\[...\\]`，基于本地 KaTeX 离线渲染
+    -   粗体、斜体、删除线、列表、标题、代码块（带语法高亮；行号与自动换行可配置）、表格、图片、链接、引用块、HR 等
+    -   数学公式：默认支持 `$...$`、`$$...$$`；可在“设置 → 语法偏好”启用 `\\(...\\)`、`\\[...\\]` 和 `math` fenced code block，基于本地 KaTeX 离线渲染
     -   Mermaid 图表：本地离线渲染，支持 50%–500% 缩放、拖动平移和 SVG 导出
 -   工具栏一键切换源码 / 预览模式
 -   预览模式下的所见即所得编辑（基于 contenteditable + turndown 反向生成 markdown）
 -   预览模式 Cmd+点击 链接由系统浏览器打开
 -   `Cmd+F` 全文查找、`Cmd+R` 展开替换，支持替换当前项 / 全部替换，以及 `Cmd+G` / `Cmd+Shift+G` 跳转匹配项（源码与预览模式）
--   Settings 窗口（`Cmd+,`）：自定义快捷键、主题（亮 / 暗 / 跟随系统）、About
+-   Settings 窗口（`Cmd+,`）：自定义快捷键、主题（亮 / 暗 / 跟随系统）、语法偏好、About
 
 ### 待实现
 
@@ -89,7 +89,7 @@ macOS 上的本地 Markdown 编辑器，使用 Swift + AppKit 开发，纯 Swift
 | `marked.umd.js` | 第三方 Markdown→HTML 解析器（marked v12）。被预览 HTML 的 `<script src>` 加载。**想升级 marked 时替换这个文件。** |
 | `highlight.min.js` | 第三方代码块语法高亮库（highlight.js v11.9）。在预览 HTML 中调 `hljs.highlightElement` 高亮 `<pre><code>`。 |
 | `katex.min.js` | 第三方数学公式渲染库（KaTeX）。用于把 TeX 公式渲染为 HTML/MathML。 |
-| `auto-render.min.js` | KaTeX auto-render 插件。扫描预览内容中的 `$...$`、`$$...$$`、`\\(...\\)`、`\\[...\\]` 并渲染。 |
+| `auto-render.min.js` | KaTeX auto-render 插件。扫描预览内容中的 `$...$`、`$$...$$`，并按语法偏好选择是否渲染 `\\(...\\)`、`\\[...\\]`。 |
 | `katex.min.css` | KaTeX 样式。依赖 `fonts/` 下的 KaTeX woff2 字体文件。 |
 | `mermaid.min.js` | 第三方图表渲染库（Mermaid v11.16.0）。把 `mermaid` fenced code block 离线渲染为 SVG。 |
 | `turndown.js` | 第三方 HTML→Markdown 反向转换库。预览模式下 `contenteditable` 编辑后，把当前 DOM 转回 markdown 写回 `document.text`。 |

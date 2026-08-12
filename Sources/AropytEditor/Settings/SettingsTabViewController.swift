@@ -7,13 +7,15 @@ final class SettingsTabViewController: NSSplitViewController {
         case general = 0
         case shortcuts = 1
         case theme = 2
-        case about = 3
+        case syntax = 3
+        case about = 4
 
         var title: String {
             switch self {
             case .general:   return L10n.tr("settings.tabs.general", "General")
             case .shortcuts: return L10n.tr("settings.tabs.shortcuts", "Shortcuts")
             case .theme:     return L10n.tr("settings.tabs.theme", "Theme")
+            case .syntax:    return L10n.tr("settings.tabs.syntax", "Syntax Preferences")
             case .about:     return L10n.tr("settings.tabs.about", "About")
             }
         }
@@ -23,6 +25,7 @@ final class SettingsTabViewController: NSSplitViewController {
             case .general:   return "gearshape"
             case .shortcuts: return "keyboard"
             case .theme:     return "paintbrush"
+            case .syntax:    return "curlybraces"
             case .about:     return "info.circle"
             }
         }
@@ -86,6 +89,7 @@ final class SettingsTabViewController: NSSplitViewController {
         case .general:   vc = GeneralTabViewController()
         case .shortcuts: vc = ShortcutsTabViewController()
         case .theme:     vc = ThemeTabViewController()
+        case .syntax:    vc = SyntaxTabViewController()
         case .about:     vc = AboutTabViewController()
         }
         tabControllers[tab] = vc

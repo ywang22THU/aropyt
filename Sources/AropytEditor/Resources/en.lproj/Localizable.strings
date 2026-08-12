@@ -79,6 +79,7 @@
 "settings.tabs.general" = "General";
 "settings.tabs.shortcuts" = "Shortcuts";
 "settings.tabs.theme" = "Theme";
+"settings.tabs.syntax" = "Syntax Preferences";
 "settings.tabs.about" = "About";
 "settings.theme.title" = "Appearance";
 "settings.theme.option.system" = "Follow System";
@@ -96,6 +97,14 @@
 "settings.autosave.mode.after_delay" = "After Delay";
 "settings.autosave.mode.never" = "Never";
 "settings.autosave.on_change_warning" = "On Change can cause high CPU usage: editing a long document in Preview repeatedly converts the full document.";
+"settings.syntax.title" = "Syntax Preferences";
+"settings.syntax.math.title" = "Math Formulas";
+"settings.syntax.math.backslash_delimiters" = "Support \\[\\] and \\(\\) math formulas";
+"settings.syntax.math.backslash_delimiters_warning" = "This syntax conflicts with Markdown bracket escaping and causes problems when editing text in Preview mode.";
+"settings.syntax.math.code_blocks" = "Support math code blocks in ```math format";
+"settings.syntax.code_block.title" = "Code Blocks";
+"settings.syntax.code_block.line_numbers" = "Show line numbers";
+"settings.syntax.code_block.line_wrapping" = "Automatic line wrapping";
 
 "preview.render.progress" = "Rendering preview… %d of %d blocks";
 "preview.render.complete" = "Preview complete";
@@ -143,7 +152,7 @@
 "settings.about.permissions.network.title" = "Network";
 "settings.about.permissions.network.body" = "Aropyt has no account, telemetry, or background sync. Remote images or links in your Markdown may be loaded by preview or the browser.";
 "settings.about.permissions.local_data.title" = "Local Data";
-"settings.about.permissions.local_data.body" = "Shortcuts, theme, and language preferences are stored locally in macOS user defaults.";
+"settings.about.permissions.local_data.body" = "Shortcuts, theme, syntax, and language preferences are stored locally in macOS user defaults.";
 
 "error.file.decode_failed" = "Unable to decode file contents (not UTF-8/UTF-16).";
 "reload.error.title" = "Could Not Reload";

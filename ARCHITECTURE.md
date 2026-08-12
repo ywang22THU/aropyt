@@ -121,7 +121,8 @@ tv.textContainer?.containerSize = NSSize(width: scroll.contentSize.width, height
    - 头部 `<link>` 样式 + `<script src="marked.umd.js">` + `<script src="highlight.min.js">` + KaTeX / Mermaid 资源
    - body 里塞一个可编辑的 `<article id="content"></article>`
    - 用 `JSON.stringify` 内联原始 markdown 字符串，避免转义错误
-   - 末尾 `<script>` 先保护数学片段，再调 `marked.parse` 写入 `#content`，然后用 KaTeX 渲染公式、用 Mermaid 渲染 `language-mermaid` 代码块，并对其余 `pre code` 运行 highlight.js
+   - 末尾 `<script>` 先保护数学片段，再调 `marked.parse` 写入 `#content`，然后用 KaTeX 渲染公式、按语法偏好把 `language-math` 代码块转为公式、用 Mermaid 渲染 `language-mermaid` 代码块，并对其余 `pre code` 运行 highlight.js；数学节点保存原始源码、行内/行间类型和分隔符元数据，供 Turndown 无损回写
+   - 普通代码块按语法偏好添加独立行号 gutter，并在 `pre-wrap` 自动换行与 `pre` + 横向滚动之间切换；gutter 不进入 `<code>`，Turndown 回写不会把行号写进 Markdown
    - Mermaid 容器保留原始图表源码，并用独立工具栏直接调整 SVG `viewBox` 来维护 50%–500% 矢量缩放与拖动平移，避免 CSS transform 合成层放大后模糊；SVG 通过 WebKit message handler 交给原生保存面板导出
    - Turndown 回写 Mermaid 容器时恢复为 `mermaid` fenced code block，避免交互控件和 SVG 污染 Markdown
 2. WebView 用 `loadHTMLString(_:baseURL:)`，baseURL 指向 Resources 目录，让 `<script src>` 和图片相对路径生效。
