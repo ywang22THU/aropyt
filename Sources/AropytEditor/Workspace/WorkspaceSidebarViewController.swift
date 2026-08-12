@@ -1,7 +1,7 @@
 import AppKit
 
 final class WorkspaceSidebarViewController: NSViewController {
-    static let leadingContentInset: CGFloat = 10
+    static let horizontalContentInset: CGFloat = 10
 
     let model: WorkspaceTreeModel
     let outlineView = WorkspaceOutlineView()
@@ -70,9 +70,12 @@ final class WorkspaceSidebarViewController: NSViewController {
         NSLayoutConstraint.activate([
             scrollView.leadingAnchor.constraint(
                 equalTo: rootView.leadingAnchor,
-                constant: Self.leadingContentInset
+                constant: Self.horizontalContentInset
             ),
-            scrollView.trailingAnchor.constraint(equalTo: rootView.trailingAnchor),
+            scrollView.trailingAnchor.constraint(
+                equalTo: rootView.trailingAnchor,
+                constant: -Self.horizontalContentInset
+            ),
             scrollView.topAnchor.constraint(equalTo: rootView.topAnchor),
             scrollView.bottomAnchor.constraint(equalTo: rootView.bottomAnchor),
         ])

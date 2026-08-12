@@ -24,7 +24,24 @@ struct WorkspaceSidebarTests {
             to: controller.view
         )
 
-        #expect(disclosureOrigin.x >= WorkspaceSidebarViewController.leadingContentInset)
+        #expect(disclosureOrigin.x >= WorkspaceSidebarViewController.horizontalContentInset)
+    }
+
+    @Test func treeUsesEqualHorizontalMargins() throws {
+        _ = NSApplication.shared
+        let root = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let controller = try WorkspaceSidebarViewController(rootURL: root)
+        controller.view.frame = NSRect(x: 0, y: 0, width: 250, height: 500)
+        controller.view.layoutSubtreeIfNeeded()
+        let scrollView = try #require(controller.outlineView.enclosingScrollView)
+
+        let leftMargin = scrollView.frame.minX - controller.view.bounds.minX
+        let rightMargin = controller.view.bounds.maxX - scrollView.frame.maxX
+
+        #expect(abs(leftMargin - WorkspaceSidebarViewController.horizontalContentInset) < 0.5)
+        #expect(abs(rightMargin - WorkspaceSidebarViewController.horizontalContentInset) < 0.5)
+        #expect(abs(leftMargin - rightMargin) < 0.5)
     }
 
     @Test func directoryMenuUsesRequestedGroups() throws {
