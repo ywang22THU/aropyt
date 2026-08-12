@@ -47,6 +47,22 @@ final class WorkspaceTreeModel {
         return loadedNode(at: url, below: root)
     }
 
+    func node(at url: URL) throws -> WorkspaceTreeNode? {
+        let url = url.standardizedFileURL
+        guard fileSystem.contains(url) else { return nil }
+        if url == root.url { return root }
+
+        let relativeComponents = url.pathComponents.dropFirst(root.url.pathComponents.count)
+        var current = root
+        for component in relativeComponents {
+            guard let child = try children(of: current).first(where: { $0.name == component }) else {
+                return nil
+            }
+            current = child
+        }
+        return current
+    }
+
     func updateURLs(afterMoving oldURL: URL, to newURL: URL) {
         updateURLs(below: root,
                    oldComponents: oldURL.standardizedFileURL.pathComponents,
