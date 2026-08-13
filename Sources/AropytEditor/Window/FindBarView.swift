@@ -8,11 +8,9 @@ enum DocumentFindDirection {
 
 struct DocumentFindResult: Equatable {
     let currentIndex: Int?
-    /// WebKit reports only whether a match exists, so this is nil when the
-    /// preview has a match whose total count is unavailable.
-    let totalMatches: Int?
+    let totalMatches: Int
 
-    var found: Bool { totalMatches.map { $0 > 0 } ?? true }
+    var found: Bool { totalMatches > 0 }
 }
 
 struct DocumentReplaceResult: Equatable {
@@ -42,6 +40,7 @@ final class FindBarView: NSVisualEffectView, NSSearchFieldDelegate {
     var query: String { searchField.stringValue }
     var replacement: String { replacementField.stringValue }
     var hasQuery: Bool { !query.isEmpty }
+    var resultDescription: String { resultLabel.stringValue }
     private(set) var isReplaceVisible = false
 
     override init(frame frameRect: NSRect) {
@@ -63,6 +62,11 @@ final class FindBarView: NSVisualEffectView, NSSearchFieldDelegate {
         setReplaceVisible(true)
     }
 
+    func setQuery(_ query: String) {
+        searchField.stringValue = query
+        updateReplaceActionsEnabled()
+    }
+
     func setResult(_ result: DocumentFindResult?) {
         guard let result else {
             resultLabel.stringValue = ""
@@ -72,8 +76,8 @@ final class FindBarView: NSVisualEffectView, NSSearchFieldDelegate {
             resultLabel.stringValue = L10n.tr("find.no_results", "No results")
             return
         }
-        if let currentIndex = result.currentIndex, let totalMatches = result.totalMatches {
-            resultLabel.stringValue = "\(currentIndex + 1)/\(totalMatches)"
+        if let currentIndex = result.currentIndex {
+            resultLabel.stringValue = "\(currentIndex + 1) / \(result.totalMatches)"
         } else {
             resultLabel.stringValue = ""
         }

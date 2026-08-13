@@ -32,6 +32,15 @@ struct DocumentFindTests {
         #expect(controller.find(query: "", direction: .initial) == nil)
     }
 
+    @Test func sourceExposesSelectedTextForCommandFind() {
+        _ = NSApplication.shared
+        let controller = SourceViewController()
+        controller.setText("before selected after")
+        controller.setEditorSelectedRange(NSRange(location: 7, length: 8))
+
+        #expect(controller.editorSelectedText == "selected")
+    }
+
     @Test func sourceReplacesCurrentMatchAndThenAllRemainingMatches() {
         _ = NSApplication.shared
         let controller = SourceViewController()
@@ -70,5 +79,14 @@ struct DocumentFindTests {
         #expect(!findBar.isReplaceVisible)
         findBar.showReplace()
         #expect(findBar.isReplaceVisible)
+    }
+
+    @Test func findBarShowsCurrentIndexAndDocumentTotal() {
+        _ = NSApplication.shared
+        let findBar = FindBarView()
+
+        findBar.setResult(DocumentFindResult(currentIndex: 1, totalMatches: 4))
+
+        #expect(findBar.resultDescription == "2 / 4")
     }
 }

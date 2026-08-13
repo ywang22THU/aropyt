@@ -499,7 +499,7 @@ struct PreviewIntegrationTests {
                 continuation.resume(returning: $0)
             }
         }
-        #expect(first?.found == true)
+        #expect(first == DocumentFindResult(currentIndex: 0, totalMatches: 2))
         let firstSelection = try await javaScriptString(
             "window.getSelection().toString()",
             in: controller.view as! WKWebView
@@ -511,7 +511,7 @@ struct PreviewIntegrationTests {
                 continuation.resume(returning: $0)
             }
         }
-        #expect(second?.found == true)
+        #expect(second == DocumentFindResult(currentIndex: 1, totalMatches: 2))
         let secondSelection = try await javaScriptString(
             "window.getSelection().toString()",
             in: controller.view as! WKWebView
@@ -524,6 +524,55 @@ struct PreviewIntegrationTests {
             }
         }
         #expect(missing?.found == false)
+    }
+
+    @Test func commandFindUsesSelectedPreviewAndSourceText() async throws {
+        _ = NSApplication.shared
+        let document = MarkdownDocument()
+        document.text = "# Alpha heading\n\nBody alpha text"
+        let main = MainViewController()
+        main.document = document
+        _ = main.view
+        main.reloadFromDocument()
+
+        let preview = try #require(
+            main.children.compactMap { $0 as? PreviewViewController }.first
+        )
+        try await waitUntilReady(preview, timeout: .seconds(10))
+        try await runJavaScript("""
+            (function() {
+                var node = document.querySelector('p').firstChild;
+                var offset = node.nodeValue.toLocaleLowerCase().indexOf('alpha');
+                var range = document.createRange();
+                range.setStart(node, offset);
+                range.setEnd(node, offset + 5);
+                var selection = window.getSelection();
+                selection.removeAllRanges();
+                selection.addRange(range);
+            })();
+            """, in: preview.view as! WKWebView)
+
+        main.showFind(nil)
+        try await waitForCondition(timeout: .seconds(3)) {
+            main.currentFindQuery == "alpha"
+                && main.currentFindResultDescription == "1 / 2"
+        }
+
+        main.toggleMode(nil)
+        try await waitForCondition(timeout: .seconds(3)) { main.mode == .source }
+        let source = try #require(
+            main.children.compactMap { $0 as? SourceViewController }.first
+        )
+        let secondAlpha = (source.currentText as NSString).range(
+            of: "alpha",
+            options: [.caseInsensitive, .backwards]
+        )
+        source.setEditorSelectedRange(secondAlpha)
+
+        main.showFind(nil)
+
+        #expect(main.currentFindQuery == "alpha")
+        #expect(main.currentFindResultDescription == "2 / 2")
     }
 
     @Test func replacesCurrentAndAllRemainingRenderedPreviewMatches() async throws {

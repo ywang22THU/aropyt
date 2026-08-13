@@ -40,6 +40,9 @@ final class MainViewController: NSViewController, NSMenuItemValidation {
         mode == .preview && previewVC?.isDirty == true
     }
 
+    var currentFindQuery: String { findBar.query }
+    var currentFindResultDescription: String { findBar.resultDescription }
+
     init(imagePasteService: ImagePasteService = ImagePasteService()) {
         self.imagePasteService = imagePasteService
         super.init(nibName: nil, bundle: nil)
@@ -382,6 +385,27 @@ final class MainViewController: NSViewController, NSMenuItemValidation {
         _ = view
         findBar.updateLocalization()
         findBar.isHidden = false
+        switch mode {
+        case .source:
+            presentFindBar(queryFromSelection: sourceVC.editorSelectedText)
+        case .preview:
+            findGeneration &+= 1
+            let generation = findGeneration
+            guard let previewVC else {
+                presentFindBar(queryFromSelection: nil)
+                return
+            }
+            previewVC.selectedText { [weak self] selectedText in
+                guard let self, generation == self.findGeneration else { return }
+                self.presentFindBar(queryFromSelection: selectedText)
+            }
+        }
+    }
+
+    private func presentFindBar(queryFromSelection selectedText: String?) {
+        if let selectedText, !selectedText.isEmpty {
+            findBar.setQuery(selectedText)
+        }
         findBar.focus(in: view.window)
         if findBar.hasQuery {
             performFind(.initial)

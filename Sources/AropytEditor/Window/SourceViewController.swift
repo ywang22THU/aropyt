@@ -39,6 +39,15 @@ final class SourceViewController: NSViewController, NSTextViewDelegate {
         return textView?.selectedRange() ?? NSRange(location: 0, length: 0)
     }
 
+    var editorSelectedText: String? {
+        _ = view
+        guard let textView else { return nil }
+        let range = textView.selectedRange()
+        let text = textView.string as NSString
+        guard range.length > 0, NSMaxRange(range) <= text.length else { return nil }
+        return text.substring(with: range)
+    }
+
     var editorUndoManager: UndoManager? {
         _ = view
         return textView?.undoManager

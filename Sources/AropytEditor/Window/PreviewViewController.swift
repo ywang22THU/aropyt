@@ -288,9 +288,38 @@ final class PreviewViewController: NSViewController, WKNavigationDelegate, WKScr
         )
     }
 
+    func selectedText(completion: @escaping (String?) -> Void) {
+        guard isReady, let webView else {
+            completion(nil)
+            return
+        }
+        webView.evaluateJavaScript("""
+            (function() {
+                var content = document.getElementById('content');
+                var selection = window.getSelection();
+                if (!content || !selection || selection.rangeCount === 0 || selection.isCollapsed) {
+                    return null;
+                }
+                var range = selection.getRangeAt(0);
+                var container = range.commonAncestorContainer;
+                if (container.nodeType !== Node.ELEMENT_NODE) container = container.parentElement;
+                if (!(container === content || content.contains(container))) return null;
+                return selection.toString();
+            })();
+            """) { value, error in
+            guard error == nil, let text = value as? String, !text.isEmpty else {
+                completion(nil)
+                return
+            }
+            completion(text)
+        }
+    }
+
     /// Searches the rendered document text using WebKit's page-find engine.
     /// An initial search resets the page selection so incremental query changes
-    /// consistently start from the beginning of the preview.
+    /// consistently start from the beginning of the preview. WebKit does not
+    /// report a match count, so the selected DOM range is compared with the
+    /// rendered text to derive the current index and total.
     func find(query: String,
               direction: DocumentFindDirection,
               completion: @escaping (DocumentFindResult?) -> Void) {
@@ -305,10 +334,11 @@ final class PreviewViewController: NSViewController, WKNavigationDelegate, WKScr
             configuration.caseSensitive = false
             configuration.wraps = true
             webView.find(query, configuration: configuration) { result in
-                completion(DocumentFindResult(
-                    currentIndex: nil,
-                    totalMatches: result.matchFound ? nil : 0
-                ))
+                guard result.matchFound else {
+                    completion(DocumentFindResult(currentIndex: nil, totalMatches: 0))
+                    return
+                }
+                self.findResultForCurrentSelection(query: query, completion: completion)
             }
         }
 
@@ -329,6 +359,72 @@ final class PreviewViewController: NSViewController, WKNavigationDelegate, WKScr
             })();
             """) { _, _ in
             performFind()
+        }
+    }
+
+    private func findResultForCurrentSelection(
+        query: String,
+        completion: @escaping (DocumentFindResult?) -> Void
+    ) {
+        guard let webView else {
+            completion(nil)
+            return
+        }
+        let queryLiteral = Self.javaScriptStringLiteral(query)
+        webView.evaluateJavaScript("""
+            (function(query) {
+                var content = document.getElementById('content');
+                var selection = window.getSelection();
+                if (!content || !selection || !query) return null;
+
+                var needle = query.toLocaleLowerCase();
+                function countMatches(text) {
+                    var haystack = String(text || '').toLocaleLowerCase();
+                    var count = 0;
+                    var offset = 0;
+                    while ((offset = haystack.indexOf(needle, offset)) !== -1) {
+                        count += 1;
+                        offset += needle.length;
+                    }
+                    return count;
+                }
+
+                var total = countMatches(content.textContent);
+                if (selection.rangeCount === 0) {
+                    return { currentIndex: total > 0 ? 0 : null, totalMatches: total };
+                }
+
+                var selectedRange = selection.getRangeAt(0);
+                var container = selectedRange.commonAncestorContainer;
+                if (container.nodeType !== Node.ELEMENT_NODE) container = container.parentElement;
+                if (!(container === content || content.contains(container))) {
+                    return { currentIndex: total > 0 ? 0 : null, totalMatches: total };
+                }
+
+                var prefixRange = document.createRange();
+                prefixRange.selectNodeContents(content);
+                prefixRange.setEnd(selectedRange.startContainer, selectedRange.startOffset);
+                var currentIndex = countMatches(prefixRange.toString());
+                if (total > 0) currentIndex = Math.min(currentIndex, total - 1);
+                return {
+                    currentIndex: total > 0 ? currentIndex : null,
+                    totalMatches: total
+                };
+            })(\(queryLiteral));
+            """) { value, error in
+            guard
+                error == nil,
+                let values = value as? [String: Any],
+                let total = values["totalMatches"] as? NSNumber
+            else {
+                completion(nil)
+                return
+            }
+            let current = (values["currentIndex"] as? NSNumber)?.intValue
+            completion(DocumentFindResult(
+                currentIndex: current,
+                totalMatches: total.intValue
+            ))
         }
     }
 
