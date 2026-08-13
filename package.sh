@@ -12,6 +12,7 @@ fi
 APP_NAME="AropytEditor"
 DISPLAY_NAME="Aropyt"
 BUNDLE_ID="com.aropyt.AropytEditor"
+DESIGNATED_REQUIREMENT="designated => identifier \"$BUNDLE_ID\""
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 INFO_PLIST="$SCRIPT_DIR/Sources/$APP_NAME/Resources/Info.plist"
@@ -47,9 +48,11 @@ cp "$SCRIPT_DIR/Sources/$APP_NAME/Resources/AropytEditor.icns" \
    "$APP_BUNDLE/Contents/Resources/AropytEditor.icns"
 
 # ── 第 3 步：Ad-hoc 签名 ─────────────────────────────────────────────────────
-# 无 Apple 开发者账号时用 "-"；分发给他人需换成真实证书并 notarize
+# 固定 DR 让 macOS 在不同 ad-hoc 构建间保持应用身份；正式分发仍需真实证书和 notarize
 echo "==> [3/4] ad-hoc 签名"
-codesign --deep --force --sign - "$APP_BUNDLE"
+codesign --deep --force --sign - \
+    --requirements "=$DESIGNATED_REQUIREMENT" \
+    "$APP_BUNDLE"
 
 # ── 第 4 步：打包 ─────────────────────────────────────────────────────────────
 if [[ "$MODE" == "dmg" ]]; then
