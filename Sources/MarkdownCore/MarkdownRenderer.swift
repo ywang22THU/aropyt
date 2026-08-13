@@ -92,6 +92,8 @@ public enum MarkdownRenderer {
         let mermaidResetText = jsStringLiteral(configuration.mermaidResetText)
         let mermaidExportText = jsStringLiteral(configuration.mermaidExportText)
         let mermaidPanText = jsStringLiteral(configuration.mermaidPanText)
+        let horizontalPadding = PreviewLayoutMetrics.horizontalPadding
+        let maximumContentWidth = PreviewLayoutMetrics.maximumContentWidth
         return """
         <!DOCTYPE html>
         <html lang="en">
@@ -107,7 +109,7 @@ public enum MarkdownRenderer {
                 :root { color-scheme: light dark; }
                 body {
                     margin: 0;
-                    padding: 24px 36px 64px 36px;
+                    padding: 24px \(horizontalPadding)px 64px \(horizontalPadding)px;
                     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
                     background: #ffffff;
                     color: #1f2328;
@@ -117,7 +119,7 @@ public enum MarkdownRenderer {
                 }
                 .markdown-body {
                     box-sizing: border-box;
-                    max-width: 920px;
+                    max-width: \(maximumContentWidth)px;
                     margin: 0 auto;
                     background: transparent;
                     color: inherit;

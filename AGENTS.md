@@ -102,7 +102,7 @@ swift run AropytEditor
 ### 源码模式
 
 - `NSTextView` 必须设置 `minSize`、`maxSize`、`isVerticallyResizable`、`isHorizontallyResizable`、`autoresizingMask`、`textContainer.widthTracksTextView`、`textContainer.containerSize`，否则可能空白。
-- 源码 `NSTextView` 使用左右各 28 pt 的 `textContainerInset`，并把 `lineFragmentPadding` 设为 0；这一边距属于源码视图自身，不受目录侧边栏状态影响。
+- 源码 `NSTextView` 与预览共用正文宽度规则：左右边距至少 36 pt，窗口较宽时正文最大 920 pt 并居中；`lineFragmentPadding` 为 0。这一边距属于源码视图自身，会按编辑区域宽度动态更新。
 - 源码模式关闭富文本、自动替换、拼写纠正、自动链接检测和 data detection。
 - `MarkdownHighlighter` 负责标题、引用、列表、代码、粗体、斜体、链接、图片、删除线的颜色和字体属性。
 - `allowsNonContiguousLayout` 开启；长文档先高亮可见区，再以约 64 KiB 批次让出主线程，generation 会取消过期批次。

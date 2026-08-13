@@ -39,6 +39,15 @@ struct MarkdownRendererTests {
         #expect(html.contains("turndownService.addRule('aropytMathSegment'"))
     }
 
+    @Test func previewUsesSharedContentMargins() {
+        let html = MarkdownRenderer.htmlDocument(for: "content")
+
+        #expect(PreviewLayoutMetrics.horizontalContentInset(for: 800) == 36)
+        #expect(PreviewLayoutMetrics.horizontalContentInset(for: 1100) == 90)
+        #expect(html.contains("padding: 24px 36.0px 64px 36.0px"))
+        #expect(html.contains("max-width: 920.0px"))
+    }
+
     @Test func backslashMathDelimiterConfigurationIsEmbedded() {
         let configuration = PreviewRenderConfiguration(
             isLongDocument: false,

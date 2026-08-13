@@ -4,7 +4,8 @@ import MarkdownCore
 /// 源码模式：NSTextView + 简单正则语法高亮。
 final class SourceViewController: NSViewController, NSTextViewDelegate {
 
-    static let horizontalTextInset: CGFloat = 28
+    static let minimumHorizontalTextInset = CGFloat(PreviewLayoutMetrics.horizontalPadding)
+    static let horizontalTextInset = minimumHorizontalTextInset
 
     /// 不要用 lazy var：在 loadView 中通过 helper 创建 NSTextView 后，
     /// 容易出现 scrollView 持有的实例和 self 属性不是同一个的诡异情况。
@@ -77,7 +78,7 @@ final class SourceViewController: NSViewController, NSTextViewDelegate {
                                                  height: CGFloat.greatestFiniteMagnitude)
         tv.textContainer?.widthTracksTextView = true
         tv.textContainer?.lineFragmentPadding = 0
-        tv.textContainerInset = NSSize(width: Self.horizontalTextInset, height: 0)
+        tv.textContainerInset = NSSize(width: Self.minimumHorizontalTextInset, height: 0)
         tv.layoutManager?.allowsNonContiguousLayout = true
 
         tv.isRichText = false
@@ -102,6 +103,11 @@ final class SourceViewController: NSViewController, NSTextViewDelegate {
         self.view = scroll
     }
 
+    override func viewDidLayout() {
+        super.viewDidLayout()
+        updateHorizontalTextInset()
+    }
+
     var editorTextContainerInset: NSSize {
         _ = view
         return textView?.textContainerInset ?? .zero
@@ -112,9 +118,21 @@ final class SourceViewController: NSViewController, NSTextViewDelegate {
         return textView?.textContainer?.lineFragmentPadding ?? 0
     }
 
+    static func horizontalTextInset(for viewportWidth: CGFloat) -> CGFloat {
+        CGFloat(PreviewLayoutMetrics.horizontalContentInset(for: Double(viewportWidth)))
+    }
+
+    private func updateHorizontalTextInset() {
+        guard let textView else { return }
+        let inset = Self.horizontalTextInset(for: view.bounds.width)
+        guard textView.textContainerInset.width != inset else { return }
+        textView.textContainerInset = NSSize(width: inset, height: 0)
+    }
+
     /// 由外部（document 加载完成、模式切换）调用，强制设置内容并触发高亮。
     func setText(_ s: String) {
         _ = self.view
+        updateHorizontalTextInset()
         guard let tv = textView else { return }
         if tv.string != s {
             tv.string = s
@@ -262,6 +280,7 @@ final class SourceViewController: NSViewController, NSTextViewDelegate {
     /// Aligns a UTF-16 source offset with the top of the source viewport without
     /// changing the user's selection.
     func scrollToSourceOffset(_ requestedOffset: Int) {
+        updateHorizontalTextInset()
         performScrollToSourceOffset(requestedOffset)
         // NSTextView may update its document height after the current run-loop
         // turn when it has just been embedded or received new text. Reapply once

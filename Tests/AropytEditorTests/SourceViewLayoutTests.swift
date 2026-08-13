@@ -5,13 +5,20 @@ import Testing
 @Suite("Source view layout")
 @MainActor
 struct SourceViewLayoutTests {
-    @Test func editorUsesSymmetricHorizontalTextInsets() {
+    @Test func editorUsesPreviewMarginsAtNarrowAndWideWidths() {
         _ = NSApplication.shared
         let controller = SourceViewController()
-        _ = controller.view
+        let root = controller.view
 
-        #expect(controller.editorTextContainerInset.width == SourceViewController.horizontalTextInset)
-        #expect(controller.editorTextContainerInset.width > 0)
+        root.frame = NSRect(x: 0, y: 0, width: 800, height: 500)
+        controller.viewDidLayout()
+        #expect(controller.editorTextContainerInset.width == 36)
+
+        root.frame = NSRect(x: 0, y: 0, width: 1100, height: 500)
+        controller.viewDidLayout()
+        #expect(controller.editorTextContainerInset.width == 90)
+        #expect(1100 - 2 * controller.editorTextContainerInset.width == 920)
+
         #expect(controller.editorTextContainerInset.height == 0)
         #expect(controller.editorLineFragmentPadding == 0)
     }
