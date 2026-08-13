@@ -11,10 +11,11 @@ fi
 
 APP_NAME="AropytEditor"
 DISPLAY_NAME="Aropyt"
-VERSION="0.2.0"
 BUNDLE_ID="com.aropyt.AropytEditor"
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+INFO_PLIST="$SCRIPT_DIR/Sources/$APP_NAME/Resources/Info.plist"
+VERSION="$(/usr/bin/plutil -extract CFBundleShortVersionString raw "$INFO_PLIST")"
 BUILD_DIR="$SCRIPT_DIR/.build/release"
 DIST_DIR="$SCRIPT_DIR/dist"
 APP_BUNDLE="$DIST_DIR/$APP_NAME.app"
@@ -38,7 +39,7 @@ cp -R "$BUILD_DIR/${APP_NAME}_${APP_NAME}.bundle" \
       "$APP_BUNDLE/Contents/Resources/"
 
 # Info.plist —— bundle 模式由系统从 Contents/ 读；裸跑时靠 Mach-O __info_plist 段
-cp "$SCRIPT_DIR/Sources/$APP_NAME/Resources/Info.plist" \
+cp "$INFO_PLIST" \
    "$APP_BUNDLE/Contents/Info.plist"
 
 # App icon —— CFBundleIconFile 从 Contents/Resources 顶层读取

@@ -165,6 +165,7 @@
 
 "settings.about.version" = "版本 %@";
 "settings.about.version_build" = "版本 %@（%@）";
+"settings.about.version_unavailable" = "版本不可用";
 "settings.about.permissions.title" = "权限说明";
 "settings.about.permissions.files.title" = "文件访问";
 "settings.about.permissions.files.body" = "Aropyt 只会读取或写入你通过系统打开/保存面板选择的 Markdown 文件和保存位置。";

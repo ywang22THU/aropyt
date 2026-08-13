@@ -135,7 +135,17 @@ final class AboutTabViewController: NSViewController {
     }
 
     private static func versionText() -> String {
-        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.2.0"
+        guard
+            let version = Bundle.main.object(
+                forInfoDictionaryKey: "CFBundleShortVersionString"
+            ) as? String,
+            !version.isEmpty
+        else {
+            return L10n.tr(
+                "settings.about.version_unavailable",
+                "Version unavailable"
+            )
+        }
         let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? ""
         guard !build.isEmpty else {
             return L10n.tr("settings.about.version", "Version %@", version)

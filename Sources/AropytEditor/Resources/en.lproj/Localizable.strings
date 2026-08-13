@@ -165,6 +165,7 @@
 
 "settings.about.version" = "Version %@";
 "settings.about.version_build" = "Version %@ (%@)";
+"settings.about.version_unavailable" = "Version unavailable";
 "settings.about.permissions.title" = "Permissions";
 "settings.about.permissions.files.title" = "File Access";
 "settings.about.permissions.files.body" = "Aropyt only reads or writes Markdown files and save locations you choose through the system open/save panels.";
