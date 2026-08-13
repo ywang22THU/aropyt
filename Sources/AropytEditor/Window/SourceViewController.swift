@@ -6,6 +6,7 @@ final class SourceViewController: NSViewController, NSTextViewDelegate {
 
     static let minimumHorizontalTextInset = CGFloat(PreviewLayoutMetrics.horizontalPadding)
     static let horizontalTextInset = minimumHorizontalTextInset
+    static let lineHeightMultiple: CGFloat = 1.2
 
     /// 不要用 lazy var：在 loadView 中通过 helper 创建 NSTextView 后，
     /// 容易出现 scrollView 持有的实例和 self 属性不是同一个的诡异情况。
@@ -94,6 +95,9 @@ final class SourceViewController: NSViewController, NSTextViewDelegate {
         tv.textColor = NSColor.textColor
         tv.backgroundColor = NSColor.textBackgroundColor
         tv.insertionPointColor = NSColor.textColor
+        let paragraphStyle = Self.makeParagraphStyle()
+        tv.defaultParagraphStyle = paragraphStyle
+        tv.typingAttributes[.paragraphStyle] = paragraphStyle
         tv.delegate = self
 
         scroll.documentView = tv
@@ -118,6 +122,22 @@ final class SourceViewController: NSViewController, NSTextViewDelegate {
         return textView?.textContainer?.lineFragmentPadding ?? 0
     }
 
+    var editorParagraphLineHeightMultiple: CGFloat {
+        _ = view
+        guard
+            let storage = textView?.textStorage,
+            storage.length > 0,
+            let style = storage.attribute(
+                .paragraphStyle,
+                at: 0,
+                effectiveRange: nil
+            ) as? NSParagraphStyle
+        else {
+            return textView?.defaultParagraphStyle?.lineHeightMultiple ?? 0
+        }
+        return style.lineHeightMultiple
+    }
+
     static func horizontalTextInset(for viewportWidth: CGFloat) -> CGFloat {
         CGFloat(PreviewLayoutMetrics.horizontalContentInset(for: Double(viewportWidth)))
     }
@@ -127,6 +147,12 @@ final class SourceViewController: NSViewController, NSTextViewDelegate {
         let inset = Self.horizontalTextInset(for: view.bounds.width)
         guard textView.textContainerInset.width != inset else { return }
         textView.textContainerInset = NSSize(width: inset, height: 0)
+    }
+
+    private static func makeParagraphStyle() -> NSParagraphStyle {
+        let style = NSMutableParagraphStyle()
+        style.lineHeightMultiple = lineHeightMultiple
+        return style
     }
 
     /// 由外部（document 加载完成、模式切换）调用，强制设置内容并触发高亮。
@@ -366,6 +392,11 @@ final class SourceViewController: NSViewController, NSTextViewDelegate {
         storage.addAttribute(
             .font,
             value: NSFont.monospacedSystemFont(ofSize: 14, weight: .regular),
+            range: range
+        )
+        storage.addAttribute(
+            .paragraphStyle,
+            value: Self.makeParagraphStyle(),
             range: range
         )
         storage.addAttribute(.foregroundColor, value: NSColor.textColor, range: range)

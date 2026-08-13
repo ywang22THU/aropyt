@@ -22,4 +22,18 @@ struct SourceViewLayoutTests {
         #expect(controller.editorTextContainerInset.height == 0)
         #expect(controller.editorLineFragmentPadding == 0)
     }
+
+    @Test func editorUsesOnePointTwoLineHeightWithinParagraphs() {
+        _ = NSApplication.shared
+        let controller = SourceViewController()
+        controller.setText("first wrapped line\nsecond paragraph")
+
+        #expect(
+            abs(
+                controller.editorParagraphLineHeightMultiple
+                    - SourceViewController.lineHeightMultiple
+            ) < 0.001
+        )
+        #expect(SourceViewController.lineHeightMultiple == 1.2)
+    }
 }
