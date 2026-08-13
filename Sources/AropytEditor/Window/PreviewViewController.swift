@@ -57,6 +57,7 @@ final class PreviewViewController: NSViewController, WKNavigationDelegate, WKScr
     private var renderGeneration = 0
     private var renderedSyntaxOptions: SyntaxRenderOptions?
     private var renderedDocumentURL: URL?
+    private var renderedContentInvalidated = false
     private var syntaxPreferenceReloadPending = false
     private var hasCommittedDocument = false
     private(set) var navigationDidFinish = false
@@ -150,7 +151,8 @@ final class PreviewViewController: NSViewController, WKNavigationDelegate, WKScr
         }
         let documentURL = documentURL?.standardizedFileURL
         let syntaxOptions = SyntaxRenderOptions(preferences: SyntaxPreferences.shared)
-        if let last = lastSentMarkdown,
+        if !renderedContentInvalidated,
+           let last = lastSentMarkdown,
            last == markdown,
            renderedSyntaxOptions == syntaxOptions,
            renderedDocumentURL == documentURL {
@@ -159,8 +161,15 @@ final class PreviewViewController: NSViewController, WKNavigationDelegate, WKScr
         renderInternal(markdown: markdown, documentURL: documentURL)
     }
 
+    /// Ensures the next load rebuilds the preview even when Markdown and its URL
+    /// are unchanged, such as when a referenced image was replaced on disk.
+    func invalidateRenderedContent() {
+        renderedContentInvalidated = true
+    }
+
     private func renderInternal(markdown: String, documentURL: URL?) {
         guard let wv = self.webView else { return }
+        renderedContentInvalidated = false
         renderGeneration &+= 1
         let generation = renderGeneration
         isReady = false

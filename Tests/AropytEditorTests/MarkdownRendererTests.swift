@@ -86,7 +86,8 @@ struct MarkdownRendererTests {
 
         #expect(html.contains(#"aropyt-document:\/\/local\/tmp\/notes\/"#))
         #expect(html.contains("function resolveLocalImageSources(root)"))
-        #expect(html.contains("new URL(source, imageBaseURL).href"))
+        #expect(html.contains("new URL(source, imageBaseURL)"))
+        #expect(html.contains("'_aropyt_preview_revision'"))
         #expect(html.contains("data-aropyt-image-source"))
         #expect(html.contains("turndownService.addRule('aropytLocalImage'"))
     }

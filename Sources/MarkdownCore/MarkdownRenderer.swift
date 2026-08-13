@@ -1178,7 +1178,12 @@ public enum MarkdownRenderer {
                             if (source.indexOf('//') === 0) return;
                             try {
                                 image.setAttribute('data-aropyt-image-source', source);
-                                image.setAttribute('src', new URL(source, imageBaseURL).href);
+                                var resolvedSource = new URL(source, imageBaseURL);
+                                resolvedSource.searchParams.set(
+                                    '_aropyt_preview_revision',
+                                    String(renderGeneration)
+                                );
+                                image.setAttribute('src', resolvedSource.href);
                             } catch (error) {}
                         });
                     }

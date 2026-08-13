@@ -160,6 +160,52 @@ struct PreviewIntegrationTests {
         #expect(!converted.contains("aropyt-document://"), "\(converted)")
     }
 
+    @Test func commandReloadRefreshesChangedLocalImageWithSameName() async throws {
+        _ = NSApplication.shared
+        let directoryURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: directoryURL,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: directoryURL) }
+
+        let imageURL = directoryURL.appendingPathComponent("pixel.png")
+        try pngData(width: 1).write(to: imageURL, options: .atomic)
+        let documentURL = directoryURL.appendingPathComponent("note.md")
+        let markdown = "![](pixel.png)"
+        try markdown.write(to: documentURL, atomically: true, encoding: .utf8)
+
+        let document = MarkdownDocument()
+        document.fileURL = documentURL
+        document.fileType = "net.daringfireball.markdown"
+        document.text = markdown
+        let main = MainViewController()
+        main.document = document
+        _ = main.view
+        main.reloadFromDocument()
+        let preview = try #require(
+            main.children.compactMap { $0 as? PreviewViewController }.first
+        )
+        try await waitUntilReady(preview, timeout: .seconds(10))
+        let firstSource = try await waitForLoadedImage(
+            in: preview.view as! WKWebView,
+            expectedWidth: 1
+        )
+
+        try pngData(width: 2).write(to: imageURL, options: .atomic)
+        main.reloadDocument(nil)
+        try await waitUntilReady(preview, timeout: .seconds(10))
+        let reloadedSource = try await waitForLoadedImage(
+            in: preview.view as! WKWebView,
+            expectedWidth: 2
+        )
+
+        #expect(firstSource != reloadedSource)
+        #expect(reloadedSource.contains("_aropyt_preview_revision="), "\(reloadedSource)")
+        #expect(document.text == markdown)
+    }
+
     @Test func previewRoundTripPreservesDollarMathFromMetadata() async throws {
         _ = NSApplication.shared
         let preferences = SyntaxPreferences.shared
@@ -1033,7 +1079,8 @@ struct PreviewIntegrationTests {
         )
     }
 
-    private func waitForLoadedImage(in webView: WKWebView) async throws -> String {
+    private func waitForLoadedImage(in webView: WKWebView,
+                                    expectedWidth: Int = 1) async throws -> String {
         let clock = ContinuousClock()
         let started = clock.now
         var lastState = ""
@@ -1044,12 +1091,32 @@ struct PreviewIntegrationTests {
                 in: webView
             )
             let parts = lastState.split(separator: "|", maxSplits: 2).map(String.init)
-            if parts.count == 3, parts[0] == "true", parts[1] == "1" {
+            if parts.count == 3, parts[0] == "true", parts[1] == String(expectedWidth) {
                 return parts[2]
             }
             try await Task.sleep(for: .milliseconds(20))
         }
         throw IntegrationError.timeout("local image load; last state \(lastState)")
+    }
+
+    private func pngData(width: Int) throws -> Data {
+        let representation = try #require(NSBitmapImageRep(
+            bitmapDataPlanes: nil,
+            pixelsWide: width,
+            pixelsHigh: 1,
+            bitsPerSample: 8,
+            samplesPerPixel: 4,
+            hasAlpha: true,
+            isPlanar: false,
+            colorSpaceName: .deviceRGB,
+            bytesPerRow: 0,
+            bitsPerPixel: 0
+        ))
+        let color = NSColor(deviceRed: 1, green: 0, blue: 0, alpha: 1)
+        for x in 0..<width {
+            representation.setColor(color, atX: x, y: 0)
+        }
+        return try #require(representation.representation(using: .png, properties: [:]))
     }
 
     private func makeLongDocumentEditor(markdown: String,

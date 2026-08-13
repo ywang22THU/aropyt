@@ -32,6 +32,7 @@ final class MainViewController: NSViewController, NSMenuItemValidation {
     }
     private var preparationCompletions: [(Bool) -> Void] = []
     private var isSwitchingMode = false
+    private var isReloadingDocument = false
 
     var onBusyStateChanged: ((Bool) -> Void)?
 
@@ -118,9 +119,12 @@ final class MainViewController: NSViewController, NSMenuItemValidation {
     }
 
     /// 由 WindowController 在 setup 之后调用，把 document 内容首次填进 view。
-    func reloadFromDocument() {
+    func reloadFromDocument(forcePreviewReload: Bool = false) {
         _ = self.view
         guard let doc = self.document else { return }
+        if forcePreviewReload {
+            previewVC?.invalidateRenderedContent()
+        }
         if mode == .source {
             sourceVC.setText(doc.text)
         }
@@ -132,6 +136,7 @@ final class MainViewController: NSViewController, NSMenuItemValidation {
 
     @objc private func documentTextChangedExternally(_ note: Notification) {
         guard let doc = note.object as? MarkdownDocument, doc === self.document else { return }
+        guard !isReloadingDocument else { return }
         // 如果这次变更是用户在预览里编辑触发的，跳过对 webview 的回流刷新，
         // 不然 loadHTMLString 会重置整页（光标位置 / 滚动位置全丢）。
         if isApplyingFromPreview {
@@ -516,8 +521,11 @@ final class MainViewController: NSViewController, NSMenuItemValidation {
         }
 
         do {
+            isReloadingDocument = true
+            defer { isReloadingDocument = false }
             try document.reloadFromDisk()
             AutoSaveManager.shared.markSaved(document)
+            reloadFromDocument(forcePreviewReload: true)
         } catch {
             presentReloadError(error)
         }
