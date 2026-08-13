@@ -91,7 +91,7 @@ final class AboutTabViewController: NSViewController {
         row.addArrangedSubview(textStack)
 
         let titleLabel = NSTextField(labelWithString: item.title)
-        titleLabel.font = NSFont.systemFont(ofSize: 13, weight: .semibold)
+        titleLabel.font = NSFont.systemFont(ofSize: 13, weight: .regular)
         titleLabel.textColor = .labelColor
         textStack.addArrangedSubview(titleLabel)
 

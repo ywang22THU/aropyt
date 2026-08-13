@@ -42,6 +42,9 @@ struct SyntaxSettingsUITests {
             "settings.syntax.math.title",
             "Math Formulas"
         ))
+        #expect(section.font?.pointSize == 15)
+        #expect(NSFontManager.shared.traits(of: try #require(section.font))
+            .contains(.boldFontMask))
 
         let checkbox = try #require(view(
             identifiedBy: "syntax.math.backslashDelimiters",
@@ -49,6 +52,8 @@ struct SyntaxSettingsUITests {
         ) as? NSButton)
         #expect(checkbox.title.contains(#"\[\]"#))
         #expect(checkbox.title.contains(#"\(\)"#))
+        #expect(!NSFontManager.shared.traits(of: try #require(checkbox.font))
+            .contains(.boldFontMask))
 
         let warning = try #require(view(
             identifiedBy: "syntax.math.backslashDelimitersWarning",
@@ -73,6 +78,9 @@ struct SyntaxSettingsUITests {
             "settings.syntax.code_block.title",
             "Code Blocks"
         ))
+        #expect(codeBlockSection.font?.pointSize == section.font?.pointSize)
+        #expect(NSFontManager.shared.traits(of: try #require(codeBlockSection.font))
+            .contains(.boldFontMask))
         #expect(abs(codeBlockSection.frame.minX - section.frame.minX) < 0.5)
 
         let lineNumbers = try #require(view(

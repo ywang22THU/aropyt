@@ -41,8 +41,20 @@ struct ImageSettingsUITests {
             in: root
         ) as? NSTextField)
         let escape = try #require(view(identifiedBy: "image.escapeURLs", in: root) as? NSButton)
+        let destinationTitle = try #require(view(
+            identifiedBy: "image.destination.title",
+            in: root
+        ) as? NSTextField)
+        let resourceTitle = try #require(view(
+            identifiedBy: "image.resourceDirectory.title",
+            in: root
+        ) as? NSTextField)
 
         #expect(original.state == .on)
+        #expect(isRegular(destinationTitle.font))
+        #expect(isRegular(resourceTitle.font))
+        #expect(isRegular(original.font))
+        #expect(isRegular(escape.font))
         #expect(!name.isEnabled)
         #expect(escape.state == .on)
 
@@ -78,5 +90,10 @@ struct ImageSettingsUITests {
             if let match = firstSubview(of: type, in: subview) { return match }
         }
         return nil
+    }
+
+    private func isRegular(_ font: NSFont?) -> Bool {
+        guard let font else { return false }
+        return !NSFontManager.shared.traits(of: font).contains(.boldFontMask)
     }
 }

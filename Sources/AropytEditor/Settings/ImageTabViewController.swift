@@ -25,7 +25,7 @@ final class ImageTabViewController: NSViewController, NSTextFieldDelegate {
         root.translatesAutoresizingMaskIntoConstraints = false
 
         titleLabel.font = .systemFont(ofSize: 20, weight: .semibold)
-        destinationLabel.font = .systemFont(ofSize: 13, weight: .semibold)
+        destinationLabel.font = .systemFont(ofSize: 13, weight: .regular)
         destinationLabel.identifier = NSUserInterfaceItemIdentifier("image.destination.title")
 
         configureDestinationButton(
@@ -44,6 +44,7 @@ final class ImageTabViewController: NSViewController, NSTextFieldDelegate {
         resourceDirectoryLabel.identifier = NSUserInterfaceItemIdentifier(
             "image.resourceDirectory.title"
         )
+        resourceDirectoryLabel.font = .systemFont(ofSize: 13, weight: .regular)
         resourceDirectoryField.delegate = self
         resourceDirectoryField.target = self
         resourceDirectoryField.action = #selector(resourceDirectoryChanged(_:))
@@ -53,6 +54,7 @@ final class ImageTabViewController: NSViewController, NSTextFieldDelegate {
 
         escapeURLsCheckbox.target = self
         escapeURLsCheckbox.action = #selector(escapeURLsChanged(_:))
+        escapeURLsCheckbox.font = .systemFont(ofSize: NSFont.systemFontSize, weight: .regular)
         escapeURLsCheckbox.identifier = NSUserInterfaceItemIdentifier("image.escapeURLs")
 
         for control in [titleLabel, destinationLabel, originalPathButton,
@@ -217,6 +219,7 @@ final class ImageTabViewController: NSViewController, NSTextFieldDelegate {
     private func configureDestinationButton(_ button: NSButton, identifier: String) {
         button.target = self
         button.action = #selector(destinationChanged(_:))
+        button.font = .systemFont(ofSize: NSFont.systemFontSize, weight: .regular)
         button.identifier = NSUserInterfaceItemIdentifier(identifier)
     }
 }

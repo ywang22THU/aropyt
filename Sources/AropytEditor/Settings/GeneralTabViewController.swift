@@ -40,7 +40,7 @@ final class GeneralTabViewController: NSViewController {
         root.translatesAutoresizingMaskIntoConstraints = false
 
         titleLabel.font = .systemFont(ofSize: 20, weight: .semibold)
-        launchBehaviorLabel.font = .systemFont(ofSize: 13, weight: .semibold)
+        launchBehaviorLabel.font = .systemFont(ofSize: 13, weight: .regular)
         launchBehaviorLabel.identifier = NSUserInterfaceItemIdentifier("general.launch.title")
         configureLaunchRadioButton(
             createNewDocumentButton,
@@ -67,6 +67,12 @@ final class GeneralTabViewController: NSViewController {
         )
         modePopup.target = self
         modePopup.action = #selector(modeChanged(_:))
+        modePopup.font = .systemFont(ofSize: NSFont.systemFontSize, weight: .regular)
+        modeLabel.font = .systemFont(ofSize: 13, weight: .regular)
+        modeLabel.identifier = NSUserInterfaceItemIdentifier("general.autosave.mode")
+        delayLabel.font = .systemFont(ofSize: 13, weight: .regular)
+        delayLabel.identifier = NSUserInterfaceItemIdentifier("general.autosave.delay")
+        secondsLabel.font = .systemFont(ofSize: 13, weight: .regular)
 
         let formatter = NumberFormatter()
         formatter.minimum = NSNumber(value: AutoSavePreferences.validDelayRange.lowerBound)
@@ -85,6 +91,7 @@ final class GeneralTabViewController: NSViewController {
         delayStepper.action = #selector(delayStepperChanged(_:))
 
         warningLabel.textColor = .systemOrange
+        warningLabel.font = .systemFont(ofSize: NSFont.smallSystemFontSize, weight: .regular)
         warningLabel.maximumNumberOfLines = 0
 
         for control in [titleLabel, launchBehaviorLabel, createNewDocumentButton,
@@ -311,6 +318,7 @@ final class GeneralTabViewController: NSViewController {
     private func configureLaunchRadioButton(_ button: NSButton, identifier: String) {
         button.target = self
         button.action = #selector(launchBehaviorChanged(_:))
+        button.font = .systemFont(ofSize: NSFont.systemFontSize, weight: .regular)
         button.identifier = NSUserInterfaceItemIdentifier(identifier)
     }
 

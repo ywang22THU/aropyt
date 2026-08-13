@@ -30,6 +30,7 @@ final class SyntaxTabViewController: NSViewController {
 
         backslashMathCheckbox.target = self
         backslashMathCheckbox.action = #selector(backslashMathSettingChanged(_:))
+        backslashMathCheckbox.font = .systemFont(ofSize: NSFont.systemFontSize, weight: .regular)
         backslashMathCheckbox.identifier = NSUserInterfaceItemIdentifier(
             "syntax.math.backslashDelimiters"
         )
@@ -47,6 +48,7 @@ final class SyntaxTabViewController: NSViewController {
 
         mathCodeBlockCheckbox.target = self
         mathCodeBlockCheckbox.action = #selector(mathCodeBlockSettingChanged(_:))
+        mathCodeBlockCheckbox.font = .systemFont(ofSize: NSFont.systemFontSize, weight: .regular)
         mathCodeBlockCheckbox.identifier = NSUserInterfaceItemIdentifier(
             "syntax.math.codeBlocks"
         )
@@ -56,12 +58,14 @@ final class SyntaxTabViewController: NSViewController {
 
         lineNumbersCheckbox.target = self
         lineNumbersCheckbox.action = #selector(lineNumbersSettingChanged(_:))
+        lineNumbersCheckbox.font = .systemFont(ofSize: NSFont.systemFontSize, weight: .regular)
         lineNumbersCheckbox.identifier = NSUserInterfaceItemIdentifier(
             "syntax.codeBlock.lineNumbers"
         )
 
         lineWrappingCheckbox.target = self
         lineWrappingCheckbox.action = #selector(lineWrappingSettingChanged(_:))
+        lineWrappingCheckbox.font = .systemFont(ofSize: NSFont.systemFontSize, weight: .regular)
         lineWrappingCheckbox.identifier = NSUserInterfaceItemIdentifier(
             "syntax.codeBlock.lineWrapping"
         )

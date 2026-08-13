@@ -140,7 +140,7 @@ final class ThemeTabViewController: NSViewController {
         card.addSubview(imgView)
 
         let label = NSTextField(labelWithString: title)
-        label.font = NSFont.systemFont(ofSize: 12, weight: .medium)
+        label.font = NSFont.systemFont(ofSize: 12, weight: .regular)
         label.alignment = .center
         label.lineBreakMode = .byTruncatingTail
         label.translatesAutoresizingMaskIntoConstraints = false

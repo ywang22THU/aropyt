@@ -26,6 +26,12 @@ struct GeneralSettingsUITests {
             "settings.launch.title",
             "Behavior at Application Launch"
         ))
+        let autoSave = try #require(
+            view(identifiedBy: "general.autosave.mode", in: root) as? NSTextField
+        )
+        #expect(isRegular(title.font))
+        #expect(isRegular(autoSave.font))
+        #expect(title.font?.pointSize == autoSave.font?.pointSize)
 
         let createNew = try #require(button("general.launch.createNewDocument", in: root))
         let reopenLast = try #require(button("general.launch.reopenLastDocument", in: root))
@@ -76,5 +82,10 @@ struct GeneralSettingsUITests {
             }
         }
         return nil
+    }
+
+    private func isRegular(_ font: NSFont?) -> Bool {
+        guard let font else { return false }
+        return !NSFontManager.shared.traits(of: font).contains(.boldFontMask)
     }
 }

@@ -26,12 +26,12 @@ final class ShortcutsTabViewController: NSViewController {
             )
         )
         hintLabel.translatesAutoresizingMaskIntoConstraints = false
-        hintLabel.font = NSFont.systemFont(ofSize: 12)
+        hintLabel.font = NSFont.systemFont(ofSize: 12, weight: .regular)
         hintLabel.textColor = NSColor.secondaryLabelColor
 
         let feedbackLabel = NSTextField(wrappingLabelWithString: "")
         feedbackLabel.translatesAutoresizingMaskIntoConstraints = false
-        feedbackLabel.font = NSFont.systemFont(ofSize: 12, weight: .semibold)
+        feedbackLabel.font = NSFont.systemFont(ofSize: 12, weight: .regular)
         feedbackLabel.textColor = NSColor.systemOrange
         feedbackLabel.isHidden = true
         self.feedbackLabel = feedbackLabel
@@ -251,7 +251,7 @@ extension ShortcutsTabViewController: NSTableViewDataSource, NSTableViewDelegate
         c.identifier = id
         let tf = NSTextField(labelWithString: "")
         tf.translatesAutoresizingMaskIntoConstraints = false
-        tf.font = NSFont.systemFont(ofSize: 13)
+        tf.font = NSFont.systemFont(ofSize: 13, weight: .regular)
         c.addSubview(tf)
         c.textField = tf
         NSLayoutConstraint.activate([
@@ -285,7 +285,7 @@ final class ShortcutRecorderView: NSView {
         layer?.cornerRadius = 5
 
         label.translatesAutoresizingMaskIntoConstraints = false
-        label.font = NSFont.monospacedSystemFont(ofSize: 12, weight: .medium)
+        label.font = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
         label.alignment = .center
         label.lineBreakMode = .byTruncatingTail
         addSubview(label)
