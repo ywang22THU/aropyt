@@ -689,6 +689,7 @@ public enum MarkdownRenderer {
                             range.setEnd(endPosition.node, endPosition.offset);
                             var tops = [];
                             Array.prototype.forEach.call(range.getClientRects(), function(rect) {
+                                if (rect.width <= 0) return;
                                 var top = Math.round(rect.top * 2) / 2;
                                 if (tops.indexOf(top) === -1) tops.push(top);
                             });

@@ -397,6 +397,50 @@ struct PreviewIntegrationTests {
         #expect(convertedMarkdown?.contains("```swift\nfirst\n\(longLine)\nthird\n```") == true)
     }
 
+    @Test func highlightedCodeDoesNotCreatePhantomWrappedLineNumbers() async throws {
+        _ = NSApplication.shared
+        let preferences = SyntaxPreferences.shared
+        let oldLineNumbers = preferences.showsCodeBlockLineNumbers
+        let oldLineWrapping = preferences.wrapsCodeBlockLines
+        preferences.showsCodeBlockLineNumbers = true
+        preferences.wrapsCodeBlockLines = true
+        defer {
+            preferences.showsCodeBlockLineNumbers = oldLineNumbers
+            preferences.wrapsCodeBlockLines = oldLineWrapping
+        }
+
+        let markdown = """
+        ```shell
+        mkfifo s1 s2
+        cat $1 |
+          tr "[:lower:]" "[:upper:]" |
+          sort > s1 &
+        cat $1 ||
+          tr "[:upper:]" "[:lower:]" |
+          sort > s2 &
+        diff -B s1 s2
+        rm s1 s2
+        ```
+        """
+        let controller = PreviewViewController()
+        _ = controller.view
+        controller.load(markdown: markdown)
+        try await waitUntilReady(controller, timeout: .seconds(10))
+        let webView = controller.view as! WKWebView
+        let gutterReady = try await waitForJavaScriptBoolean(
+            "(document.querySelector('.aropyt-code-line-numbers')?.textContent || '').length > 0",
+            in: webView,
+            timeout: .seconds(2)
+        )
+        #expect(gutterReady)
+
+        let labels = try await javaScriptString("""
+            document.querySelector('.aropyt-code-line-numbers').textContent
+                .split('\\n').join(',');
+            """, in: webView)
+        #expect(labels == "1,2,3,4,5,6,7,8,9", "\(labels)")
+    }
+
     @Test func searchesRenderedPreviewAndMovesBetweenMatches() async throws {
         _ = NSApplication.shared
         let controller = PreviewViewController()
