@@ -11,7 +11,7 @@ fi
 
 APP_NAME="AropytEditor"
 DISPLAY_NAME="Aropyt"
-VERSION="0.1.0"
+VERSION="0.2.0"
 BUNDLE_ID="com.aropyt.AropytEditor"
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
